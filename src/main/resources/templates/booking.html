@@ -5,6 +5,17 @@
 <body>
     <div layout:fragment="content">
         <h2>Available Slots</h2>
+        <form method="get" action="/booking" style="margin-bottom:1em;">
+            <label for="date">Select date:</label>
+            <input type="date" id="date" name="date"
+                   th:value="${selectedDate}"
+                   th:min="${minDate}"
+                   th:max="${maxDate}" />
+            <button type="submit">Show</button>
+        </form>
+        <div th:if="${param.error}" style="color:red;">
+            <span th:if="${param.error[0]} == 'noslot'">Please select a slot before booking.</span>
+        </div>
         <form th:action="@{/booking/create}" method="post" th:object="${bookingRequest}">
             <ul>
                 <li th:each="slot : ${availableSlots}">

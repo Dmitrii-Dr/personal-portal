@@ -4,19 +4,22 @@
     <title>Personal Portal</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- TODO: Add CSS/JS links -->
+    <link rel="stylesheet" href="/css/site.css" />
 </head>
 <body>
-    <header>
+    <header class="site-header">
         <nav>
             <a href="/">Home</a>
             <a href="/blog">Blog</a>
             <a href="/booking">Book Session</a>
             <a href="/account/dashboard">Dashboard</a>
-            <a href="/logout">Logout</a>
+            <form th:action="@{/logout}" method="post" style="display:inline;margin:0;padding:0;">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                <button type="submit" style="background:none;border:0;padding:0;margin:0;color:inherit;cursor:pointer;">Logout</button>
+            </form>
         </nav>
     </header>
-    <main layout:fragment="content">
+    <main layout:fragment="content" class="site-container">
         <!-- Page content goes here -->
     </main>
     <footer>

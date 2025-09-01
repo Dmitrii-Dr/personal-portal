@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +26,30 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<BookingSlot> getAvailableSlots() {
-        return slotRepository.findByBookedFalseOrderByStartTimeAsc();
+        return getAvailableSlotsForDate(LocalDate.now());
+    }
+
+    @Override
+    public List<BookingSlot> getAvailableSlotsForDate(LocalDate date) {
+        ZoneId zone = ZoneId.systemDefault();
+        Instant dayStart = date.atStartOfDay(zone).toInstant();
+        Instant dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
+        // If no slots exist for this date, create standard slots from 12:00 to 18:00
+        boolean exists = slotRepository.existsByStartTimeBetween(dayStart, dayEnd);
+        if (!exists) {
+            for (int hour = 12; hour < 18; hour++) {
+                Instant start = date.atTime(hour, 0).atZone(zone).toInstant();
+                Instant end = date.atTime(hour + 1, 0).atZone(zone).toInstant();
+                BookingSlot slot = BookingSlot.builder()
+                        .startTime(start)
+                        .endTime(end)
+                        .booked(false)
+                        .build();
+                slotRepository.save(slot);
+            }
+        }
+
+        return slotRepository.findByBookedFalseAndStartTimeBetweenOrderByStartTimeAsc(dayStart, dayEnd);
     }
 
     @Override
@@ -35,7 +60,9 @@ public class BookingServiceImpl implements BookingService {
         if (slot.isBooked()) {
             throw new IllegalStateException("Slot already booked");
         }
-        slot.setBooked(true);
+    slot.setBooked(true);
+    // Persist the slot state immediately so available slot queries reflect the change
+    slotRepository.save(slot);
         Booking booking = Booking.builder()
                 .client(client)
                 .slot(slot)

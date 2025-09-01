@@ -15,16 +15,18 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final UserService userService;
+    // Authentication handled by Spring Security's UsernamePasswordAuthenticationFilter
 
     @GetMapping("/login")
     public String login() {
-        return "login"; // TODO: Create template
+        return "login";
     }
+
 
     @GetMapping("/register")
     public String registerForm(Model model) {
         model.addAttribute("registration", new RegistrationDto());
-        return "register"; // TODO: Create template
+        return "register";
     }
 
     @PostMapping("/register")

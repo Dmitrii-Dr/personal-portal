@@ -22,31 +22,31 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendWelcomeEmail(User user) {
-        Context context = new Context();
-        context.setVariable("user", user);
-        String htmlContent = templateEngine.process("email/welcome", context);
-        sendEmail(user.getEmail(), "Добро пожаловать! Давайте разбираться! ", htmlContent);
+        // Context context = new Context();
+        // context.setVariable("user", user);
+        // String htmlContent = templateEngine.process("email/welcome", context);
+        // sendEmail(user.getEmail(), "Добро пожаловать! Давайте разбираться! ", htmlContent);
     }
 
     @Override
     public void sendBookingConfirmation(Booking booking) {
-        Context context = new Context();
-        context.setVariable("booking", booking);
-        String htmlContent = templateEngine.process("email/booking-confirmation", context);
-        sendEmail(booking.getClient().getEmail(), "Booking Confirmed", htmlContent);
+        // Context context = new Context();
+        // context.setVariable("booking", booking);
+        // String htmlContent = templateEngine.process("email/booking-confirmation", context);
+        // sendEmail(booking.getClient().getEmail(), "Booking Confirmed", htmlContent);
     }
 
     private void sendEmail(String to, String subject, String htmlContent) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            // Log error, but don't throw to avoid breaking flow
-            System.err.println("Failed to send email: " + e.getMessage());
-        }
+        // try {
+        //     MimeMessage message = mailSender.createMimeMessage();
+        //     MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        //     helper.setTo(to);
+        //     helper.setSubject(subject);
+        //     helper.setText(htmlContent, true);
+        //     mailSender.send(message);
+        // } catch (MessagingException e) {
+        //     // Log error, but don't throw to avoid breaking flow
+        //     System.err.println("Failed to send email: " + e.getMessage());
+        // }
     }
 }
