@@ -1,0 +1,26 @@
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Edit Blog Post</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h2>Blog Post</h2>
+        <form th:action="@{/admin/blog}" method="post" th:object="${post}">
+            <div>
+                <input type="text" th:field="*{title}" placeholder="Title">
+                <div th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="error"></div>
+            </div>
+            <div>
+                <input type="text" th:field="*{slug}" placeholder="Slug">
+                <div th:if="${#fields.hasErrors('slug')}" th:errors="*{slug}" class="error"></div>
+            </div>
+            <div>
+                <textarea th:field="*{content}" placeholder="Content"></textarea>
+                <div th:if="${#fields.hasErrors('content')}" th:errors="*{content}" class="error"></div>
+            </div>
+            <input type="checkbox" th:field="*{publish}"> Publish
+            <button type="submit">Save</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Register</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h2>Register</h2>
+        <form th:action="@{/register}" method="post" th:object="${registration}">
+            <div>
+                <input type="email" th:field="*{email}" placeholder="Email" required>
+                <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="error"></div>
+            </div>
+            <div>
+                <input type="text" th:field="*{fullName}" placeholder="Full Name" required>
+                <div th:if="${#fields.hasErrors('fullName')}" th:errors="*{fullName}" class="error"></div>
+            </div>
+            <div>
+                <input type="password" th:field="*{password}" placeholder="Password" required>
+                <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="error"></div>
+            </div>
+            <div>
+                <input type="password" th:field="*{confirmPassword}" placeholder="Confirm Password" required>
+                <div th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}" class="error"></div>
+            </div>
+            <button type="submit">Register</button>
+        </form>
+        <p>Already have an account? <a href="/login">Login</a></p>
+    </div>
+</body>
+</html>

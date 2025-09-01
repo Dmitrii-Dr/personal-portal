@@ -1,0 +1,15 @@
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Blog</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h2>Blog Posts</h2>
+        <ul>
+            <li th:each="post : ${posts}">
+                <a th:href="@{/blog/{slug}(slug=${post.slug})}" th:text="${post.title}"></a>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>

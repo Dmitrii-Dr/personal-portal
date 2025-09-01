@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Booking Confirmed</title>
+</head>
+<body>
+    <h2>Booking Confirmed</h2>
+    <p>Your booking for <span th:text="${#temporals.format(booking.slot.startTime, 'yyyy-MM-dd HH:mm')}"></span> is confirmed.</p>
+</body>
+</html>

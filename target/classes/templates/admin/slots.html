@@ -1,0 +1,23 @@
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Manage Slots</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h2>Booking Slots</h2>
+        <form th:action="@{/admin/bookings/create}" method="post">
+            <input type="datetime-local" name="startTime" required>
+            <input type="datetime-local" name="endTime" required>
+            <button type="submit">Add Slot</button>
+        </form>
+        <ul>
+            <li th:each="slot : ${slots}">
+                <span th:text="${#temporals.format(slot.startTime, 'yyyy-MM-dd HH:mm')} + ' - ' + ${#temporals.format(slot.endTime, 'HH:mm')}"></span>
+                <form th:action="@{/admin/bookings/delete/{id}(id=${slot.id})}" method="post" style="display:inline;">
+                    <button type="submit">Delete</button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>
