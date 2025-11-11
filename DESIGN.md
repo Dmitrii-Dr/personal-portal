@@ -1,158 +1,137 @@
-### **AI Prompt: Blueprint for a Personal Website with Spring Boot & Thymeleaf**
 
-**You are an expert Senior Java Developer specializing in the Spring ecosystem. Your task is to act as my pair programmer and generate code for a personal website based on the following detailed blueprint.**
+## 1. Overview
 
----
+This document outlines the technical architecture for the **Coach's Personal Website & Booking Platform**. The project's primary goal is to provide a professional coach with a backend-driven personal website that serves as a professional online presence, a content platform (blog), and a simple, reliable system for clients to book sessions.
 
-### **1. Project Overview & Goals**
+The purpose of this technical design is to provide a single source of truth for all architectural decisions, component responsibilities, and technical standards. It is a living document intended to guide development, ensure consistency, and facilitate the onboarding of new team members.
 
-We are building a backend-driven personal website for a professional (e.g., a coach, consultant, or creator). The site will serve as a portfolio, a content platform, and a client management tool.
+## 2. Guiding Principles & Architectural Pattern
 
-*   **Public-Facing Features:** A blog and information pages.
-*   **Client-Facing Features:** A secure personal account area to book sessions, view past bookings, and access exclusive content.
-*   **Admin-Facing Features:** The ability to manage blog posts, available booking slots, and user content.
+### Architectural Pattern: Modular Monolith with a Decoupled Frontend (SPA)
 
-### **2. Technology Stack**
+For the MVP, we will adopt a **Modular Monolith** architecture for the backend. The frontend will be a standalone **Single Page Application (SPA)** that communicates with the backend via a RESTful API.
 
-*   **Language:** Java 21
-*   **Framework:** Spring Boot 
-*   **Build Tool:** Maven
-*   **Database:** PostgreSQL
-*   **View Layer:** Thymeleaf (with Layout Dialect for templating)
-*   **Core Dependencies:**
-    *   `spring-boot-starter-web`
-    *   `spring-boot-starter-data-jpa`
-    *   `spring-boot-starter-thymeleaf`
-    *   `spring-boot-starter-security`
-    *   `spring-boot-starter-mail`
-    *   `postgresql` (JDBC driver)
-    *   `lombok` (to reduce boilerplate)
-    *   `nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect`
+**Justification:**
+*   **Simplicity of Deployment:** A monolith provides a single, deployable artifact, which simplifies our CI/CD pipeline and hosting infrastructure for the MVP.
+*   **Strong Logical Boundaries:** By enforcing a modular structure within the monolith, we keep the codebase organized, maintainable, and prevent tight coupling between different business domains (e.g., content vs. booking).
+*   **Avoids Premature Complexity:** This pattern avoids the operational overhead and distributed systems challenges of a microservices architecture, which would be an over-engineering for the current scale of the project. It also leaves the door open to extract modules into separate services in the future if required.
 
-### **3. Database Schema Design (PostgreSQL)**
+### Key Principles
 
-Generate the JPA Entity classes (`@Entity`) for the following tables. Include standard annotations like `@Id`, `@GeneratedValue`, relationships (`@ManyToOne`, `@OneToMany`), and basic constraints (`@Column(nullable = false)`).
+1.  **Pragmatic & Simple First:** We will prioritize the simplest, most robust solution that meets the MVP requirements. We will avoid over-engineering and introducing unnecessary complexity.
+2.  **Clear Module Boundaries:** Code related to a specific domain (e.g., User Management, Booking) must reside within its designated module. Cross-module communication should happen through well-defined service interfaces, not direct repository access.
+3.  **Automate for Consistency:** Every part of the development and deployment lifecycle—from local environment setup (Docker) to database migrations (Flyway) and deployment—should be automated to ensure consistency and reduce manual error.
 
-1.  **`users`**
-    *   `id` (BIGINT, Primary Key, Auto-increment)
-    *   `email` (VARCHAR(255), Not Null, Unique)
-    *   `password` (VARCHAR(255), Not Null) - *Will be BCrypt hashed*
-    *   `full_name` (VARCHAR(255), Not Null)
-    *   `role` (VARCHAR(50), Not Null) - *e.g., 'ROLE_USER', 'ROLE_ADMIN'*
-    *   `created_at` (TIMESTAMP)
+## 3. Technology Stack
 
-2.  **`blog_posts`**
-    *   `id` (BIGINT, PK, Auto-increment)
-    *   `title` (VARCHAR(255), Not Null)
-    *   `slug` (VARCHAR(255), Not Null, Unique) - *A URL-friendly version of the title*
-    *   `content` (TEXT, Not Null)
-    *   `author_id` (BIGINT, Foreign Key to `users.id`)
-    *   `created_at` (TIMESTAMP)
-    *   `published_at` (TIMESTAMP, Nullable) - *If null, it's a draft*
-    *   **Relationship:** `ManyToOne` with `User` (author)
+| Category                 | Technology                           | Rationale / Purpose                                                              |
+| ------------------------ | ------------------------------------ | -------------------------------------------------------------------------------- |
+| **Backend Framework**    | Java 21 & Spring Boot 3              | A mature, robust framework for building secure, high-performance REST APIs.        |
+| **Frontend Framework**   | React                                | A modern, component-based library for building dynamic and interactive user interfaces. |
+| **Database**             | PostgreSQL                           | A reliable, open-source relational database that ensures data integrity.          |
+| **Security**             | Spring Security & JWT                | Provides a robust framework for authentication and stateless, token-based authorization. |
+| **Build Tool**           | Maven                                | Manages project dependencies and standardizes the build process for the backend.   |
+| **Containerization**     | Docker & Docker Compose              | Ensures a consistent, isolated environment for development, testing, and production. |
+| **Database Migrations**  | Flyway                               | Provides version-controlled, automated database schema management.                 |
+| **DTO Mapping**          | MapStruct                            | Generates boilerplate mapping code between JPA entities and DTOs at compile-time.  |
 
-3.  **`booking_slots`**
-    *   `id` (BIGINT, PK, Auto-increment)
-    *   `start_time` (TIMESTAMP, Not Null)
-    *   `end_time` (TIMESTAMP, Not Null)
-    *   `is_booked` (BOOLEAN, Not Null, Default: false)
+## 4. System Components & High-Level Design
 
-4.  **`bookings`**
-    *   `id` (BIGINT, PK, Auto-increment)
-    *   `client_id` (BIGINT, FK to `users.id`)
-    *   `slot_id` (BIGINT, FK to `booking_slots.id`, Unique) - *One booking per slot*
-    *   `status` (VARCHAR(50), Not Null) - *e.g., 'CONFIRMED', 'PENDING_PAYMENT', 'CANCELLED'*
-    *   `created_at` (TIMESTAMP)
-    *   **Relationships:** `ManyToOne` with `User` (client), `OneToOne` with `BookingSlot`.
+The system consists of a client-side application, a backend monolithic application, and a database. All communication between the client and backend is stateless and occurs over a secure REST API.
 
-5.  **`personal_content`**
-    *   `id` (BIGINT, PK, Auto-increment)
-    *   `title` (VARCHAR(255), Not Null)
-    *   `description` (TEXT)
-    *   `content_url` (VARCHAR(255)) - *Link to a video, PDF, etc.*
-    *   `content_type` (VARCHAR(50)) - *e.g., 'VIDEO', 'ARTICLE', 'PDF'*
-    *   `created_at` (TIMESTAMP)
+```mermaid
+graph TD
+    subgraph "User's Device"
+        Client[Browser: React SPA]
+    end
 
-### **4. Application Architecture (Layered)**
+    subgraph "Cloud Infrastructure (e.g., VPS)"
+        Nginx[NGINX / API Gateway]
+        subgraph Backend [Spring Boot Modular Monolith]
+            direction LR
+            Auth[User & Auth Module]
+            Content[Content Management Module]
+            Booking[Scheduling & Booking Module]
+        end
+        Database[(PostgreSQL)]
+    end
 
-Structure the application code into the following packages:
-*   `com.myapp.config`: Spring Security, Mail configuration.
-*   `com.myapp.controller`: Spring MVC Controllers handling HTTP requests.
-*   `com.myapp.model`: JPA Entities.
-*   `com.myapp.repository`: Spring Data JPA Repositories (interfaces extending `JpaRepository`).
-*   `com.myapp.service`: Business logic, transaction management.
-*   `com.myapp.dto`: Data Transfer Objects for forms and API responses.
-*   `com.myapp.util`: Helper classes.
+    Client -- HTTPS / REST API --> Nginx
+    Nginx -- Forwards API calls --> Backend
+    Backend -- JDBC --> Database
+```
 
-### **5. Core Feature Breakdown**
+### Component Descriptions
 
-#### **A. User Management & Security**
+*   **React SPA (Client):** The single page application responsible for all UI rendering and user interaction. It is a pure client that fetches all dynamic data from the backend API.
+*   **NGINX / API Gateway:** Acts as a reverse proxy. It serves the static React application files and forwards all API requests (e.g., `/api/*`) to the Spring Boot backend. It also handles SSL termination.
+*   **Backend (Modular Monolith):** The core of the application, built with Spring Boot. It enforces business logic, manages data persistence, and handles user authentication. It is internally organized into the following logical modules:
+    *   **User & Authentication Module:** Manages user registration, login, profile data, and JWT generation/validation.
+    *   **Content Management Module:** Handles the CRUD operations for blog articles and static pages (e.g., "About Me").
+    *   **Scheduling & Booking Module:** Manages the coach's availability, the client booking process, and the data for the client dashboard.
 
-*   **Flow:** Registration -> Login -> Access Personal Account.
-*   **Backend:**
-    *   `WebSecurityConfig`: Configure form-based login, password hashing (BCrypt), and role-based URL authorization (`/admin/**` requires `ROLE_ADMIN`, `/account/**` requires `ROLE_USER`).
-    *   `UserService`: Handle user registration, find user by email.
-    *   `AuthController`: Show login/registration pages (`@GetMapping`). Handle user registration (`@PostMapping`).
-    *   `AccountController`: Show the user's personal dashboard (`/account/dashboard`).
-*   **Frontend (Thymeleaf):**
-    *   `templates/login.html`: Login form.
-    *   `templates/register.html`: Registration form.
-    *   `templates/account/dashboard.html`: Main page for logged-in users.
+## 5. Data Model
 
-#### **B. Booking System**
+The core of our domain is modeled around four primary entities.
 
-*   **Flow:** User sees available slots -> Clicks to book -> Confirms booking -> Receives email.
-*   **Backend:**
-    *   `BookingService`:
-        *   `getAvailableSlots()`: Fetch all `BookingSlot` where `is_booked = false`.
-        *   `createBooking(User client, Long slotId)`: Core logic. Checks if slot is available, creates a `Booking` record, marks the `BookingSlot` as booked.
-    *   `BookingController`:
-        *   `@GetMapping("/booking")`: Display the page with available slots.
-        *   `@PostMapping("/booking/create")`: Handle the booking form submission.
-    *   `AdminBookingController` (`/admin/bookings`):
-        *   Methods to view all bookings, create/delete available `BookingSlot`s.
-*   **Frontend (Thymeleaf):**
-    *   `templates/booking.html`: A page displaying available time slots (e.g., in a list or simple calendar view).
-    *   `templates/account/my_bookings.html`: A list of the current user's past and upcoming bookings.
-    *   `templates/admin/slots.html`: A form for the admin to add new available slots.
+#### `users`
+Stores information for both Coaches and Clients, differentiated by a role.
+*   `id` (PK, UUID)
+*   `name` (String)
+*   `email` (String, Unique)
+*   `password_hash` (String)
+*   `role` (Enum: 'CLIENT', 'COACH')
 
-#### **C. Email Notifications**
+#### `articles`
+Represents a single blog post.
+*   `id` (PK, UUID)
+*   `title` (String)
+*   `slug` (String, Unique)
+*   `content` (Text)
+*   `author_id` (FK to `users.id`)
+*   `created_at`, `updated_at` (Timestamps)
+*   *Relationship: Many-to-One with `users` (an author can have many articles).*
 
-*   **Flow:** System events trigger emails.
-*   **Backend:**
-    *   `application.properties`: Configure SMTP server settings (host, port, username, password).
-    *   `EmailService`: An `@Service` with methods:
-        *   `sendWelcomeEmail(User user)`: Called after successful registration.
-        *   `sendBookingConfirmation(Booking booking)`: Called after a successful booking.
-    *   This service should be called from the `UserService` and `BookingService`.
-*   **Frontend (Thymeleaf):**
-    *   `templates/email/welcome.html`: Thymeleaf template for the welcome email.
-    *   `templates/email/booking-confirmation.html`: Template for the booking confirmation.
+#### `available_slots`
+Represents a time slot the coach has made available for booking.
+*   `id` (PK, UUID)
+*   `start_time` (Timestamp)
+*   `end_time` (Timestamp)
+*   `coach_id` (FK to `users.id`)
+*   `status` (Enum: 'OPEN', 'BOOKED')
+*   *Relationship: Many-to-One with `users` (a coach can have many available slots).*
 
-#### **D. Blog & Personal Content**
+#### `bookings`
+Represents a confirmed appointment, linking a client to a specific slot.
+*   `id` (PK, UUID)
+*   `client_id` (FK to `users.id`)
+*   `slot_id` (FK to `available_slots.id`, Unique)
+*   `booking_time` (Timestamp)
+*   *Relationships:*
+    *   *Many-to-One with `users` (a client can have many bookings).*
+    *   *One-to-One with `available_slots` (a slot can only be booked once).*
 
-*   **Flow (Blog):** Visitor views list of posts -> Clicks to read a full post. Admin logs in to create/edit posts.
-*   **Backend:**
-    *   `BlogPostService`: Logic to find all published posts, find a post by its slug, save/update posts.
-    *   `BlogPostController`: Public-facing endpoints (`/blog`, `/blog/{slug}`).
-    *   `AdminBlogController` (`/admin/blog`): CRUD operations for blog posts.
-*   **Flow (Personal Content):** Logged-in user navigates to their account to view exclusive content.
-*   **Backend:**
-    *   `PersonalContentService`: Logic to retrieve content.
-    *   `AccountController`: Add an endpoint like `@GetMapping("/account/content")` to display content.
-*   **Frontend (Thymeleaf):**
-    *   `templates/blog/list.html`: Displays a list of all blog posts with titles and summaries.
-    *   `templates/blog/post.html`: Displays a single full blog post.
-    *   `templates/admin/blog-form.html`: A form for creating/editing blog posts.
-    *   `templates/account/content.html`: A page listing available personal content for the user.
+## 6. API Design
 
-### **6. UI Layout (Thymeleaf Layout Dialect)**
+The API serves as the formal contract between the frontend and backend.
 
-Create a main layout template that other pages will decorate.
+*   **Style:** RESTful over HTTPS.
+*   **Data Format:** JSON for all request and response bodies. We will use Data Transfer Objects (DTOs) to decouple the API from the internal database entities.
+*   **Authentication:** Stateless authentication using JSON Web Tokens (JWT).
+    1.  Clients authenticate via the `/auth/login` endpoint with credentials.
+    2.  The server responds with a signed JWT.
+    3.  The client must include this token in the `Authorization: Bearer <token>` header for all subsequent requests to protected endpoints.
+*   **Versioning:** All API routes will be prefixed with `/api/v1/` to allow for future evolution without breaking existing clients.
 
-*   `templates/layout/main-layout.html`:
-    *   Contains the `<html>`, `<head>`, and `<body>` tags.
-    *   Includes a common header/navigation bar.
-    *   Includes a common footer.
-    *   Has a main content section: `<div layout:fragment="content"></div>`.
-*   All other view templates (e.g., `booking.html`) will start with `<html layout:decorate="~{layout/main-layout}">` and define their content inside `<div layout:fragment="content">`.
+### Key API Endpoints
+
+| Method | Path                                   | Protection | Description                                            |
+| ------ | -------------------------------------- | ---------- | ------------------------------------------------------ |
+| `POST` | `/auth/register`                       | Public     | Register a new client account.                         |
+| `POST` | `/auth/login`                          | Public     | Authenticate and receive a JWT.                        |
+| `GET`  | `/api/v1/articles`                     | Public     | Get a list of all blog articles.                       |
+| `GET`  | `/api/v1/schedule/availability`        | Public     | Get a list of all `OPEN` time slots.                   |
+| `POST` | `/api/v1/admin/availability/slots`     | Coach      | Create a new available time slot.                      |
+| `POST` | `/api/v1/bookings`                     | Client     | Book an available time slot.                           |
+| `GET`  | `/api/v1/bookings/my-bookings`         | Client     | Get a list of the current client's bookings.           |
+| `GET`  | `/api/v1/users/me`                     | Authenticated | Get the profile of the currently authenticated user.     |
