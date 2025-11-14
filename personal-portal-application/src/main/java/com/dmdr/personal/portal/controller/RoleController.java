@@ -1,6 +1,6 @@
 package com.dmdr.personal.portal.controller;
 
-import com.dmdr.personal.portal.core.user.domain.Role;
+import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.dto.CreateRoleRequest;
 import com.dmdr.personal.portal.users.service.RoleService;
 import jakarta.validation.Valid;

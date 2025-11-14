@@ -1,4 +1,4 @@
-package com.dmdr.personal.portal.core.user.domain;
+package com.dmdr.personal.portal.users.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

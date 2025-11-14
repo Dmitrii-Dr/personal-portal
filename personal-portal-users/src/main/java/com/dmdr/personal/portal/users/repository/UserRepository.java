@@ -1,6 +1,6 @@
 package com.dmdr.personal.portal.users.repository;
 
-import com.dmdr.personal.portal.core.user.domain.User;
+import com.dmdr.personal.portal.users.model.User;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

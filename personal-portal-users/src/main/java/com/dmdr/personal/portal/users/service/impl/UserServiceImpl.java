@@ -1,6 +1,6 @@
 package com.dmdr.personal.portal.users.service.impl;
 
-import com.dmdr.personal.portal.core.user.domain.User;
+import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.dto.CreateUserRequest;
 import com.dmdr.personal.portal.users.repository.UserRepository;
 import com.dmdr.personal.portal.users.service.UserService;
