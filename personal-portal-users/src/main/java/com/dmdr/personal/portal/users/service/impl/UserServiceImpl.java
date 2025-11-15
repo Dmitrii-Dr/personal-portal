@@ -10,8 +10,12 @@ import com.dmdr.personal.portal.users.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -52,6 +56,22 @@ public class UserServiceImpl implements UserService {
     @Override
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
+    }
+
+    @Override
+    public Optional<User> findById(UUID id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return userRepository.findUserById(id);
+    }
+
+    @Override
+    public List<User> findByIds(Set<UUID> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return List.of();
+        }
+        return userRepository.findAllById(ids);
     }
 
     @Override

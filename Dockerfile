@@ -26,7 +26,7 @@ COPY personal-portal-booking/src ./personal-portal-booking/src
 COPY personal-portal-application/src ./personal-portal-application/src
 
 # Build the application
-RUN mvn clean package -DskipTests -B -pl personal-portal-application -am
+RUN mvn clean package -B -pl personal-portal-application -am
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-jammy
