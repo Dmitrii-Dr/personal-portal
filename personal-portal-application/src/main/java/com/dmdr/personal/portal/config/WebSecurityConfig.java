@@ -23,10 +23,10 @@ public class WebSecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/health").permitAll()
+                .requestMatchers("/api/v1/health").permitAll()
                 .anyRequest().permitAll()
             );
-        
+
         return http.build();
     }
 }
