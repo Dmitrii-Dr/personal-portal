@@ -1,7 +1,8 @@
 package com.dmdr.personal.portal.controller;
 
-import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.dto.CreateUserRequest;
+import com.dmdr.personal.portal.users.dto.UserResponse;
+import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -23,10 +24,11 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@Valid @RequestBody CreateUserRequest request) {
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         User user = userService.createUser(request);
-        log.info("User created successfully: {}", user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+        UserResponse response = UserResponse.from(user);
+        log.info("User created successfully: {}", response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
 
