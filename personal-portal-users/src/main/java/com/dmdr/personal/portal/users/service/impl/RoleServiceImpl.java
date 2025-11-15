@@ -7,6 +7,8 @@ import com.dmdr.personal.portal.users.service.RoleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 @Transactional
 public class RoleServiceImpl implements RoleService {
@@ -21,6 +23,11 @@ public class RoleServiceImpl implements RoleService {
     public Role createRole(CreateRoleRequest request) {
         Role role = new Role(request.getName());
         return roleRepository.save(role);
+    }
+
+    @Override
+    public Optional<Role> findByName(String name) {
+        return roleRepository.findByName(name);
     }
 }
 
