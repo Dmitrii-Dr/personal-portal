@@ -1,4 +1,4 @@
-package com.dmdr.personal.portal.controller;
+package com.dmdr.personal.portal.service.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;

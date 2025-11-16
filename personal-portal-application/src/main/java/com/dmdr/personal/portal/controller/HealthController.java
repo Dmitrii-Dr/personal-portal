@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.controller;
 
+import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.service.JwtService;
 import com.dmdr.personal.portal.users.dto.AccessLevelResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,8 +17,6 @@ import java.util.Set;
 @Slf4j
 public class HealthController {
 
-    private static final String ROLE_ADMIN = "ROLE_ADMIN";
-    private static final String ROLE_USER = "ROLE_USER";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -63,10 +62,10 @@ public class HealthController {
         response.setEmail(email);
 
         // Determine access level based on roles
-        if (roles.contains(ROLE_ADMIN)) {
+        if (roles.contains(SystemRole.ADMIN.getAuthority())) {
             response.setAccessLevel("ADMIN");
             response.setMessage("Admin access granted. Full system access.");
-        } else if (roles.contains(ROLE_USER)) {
+        } else if (roles.contains(SystemRole.USER.getAuthority())) {
             response.setAccessLevel("USER");
             response.setMessage("User access granted. Standard user privileges.");
         } else {

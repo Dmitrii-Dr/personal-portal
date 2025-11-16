@@ -1,4 +1,4 @@
-package com.dmdr.personal.portal.controller;
+package com.dmdr.personal.portal.service;
 
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;

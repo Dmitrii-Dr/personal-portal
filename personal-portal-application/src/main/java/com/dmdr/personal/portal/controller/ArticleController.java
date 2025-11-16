@@ -4,6 +4,7 @@ import com.dmdr.personal.portal.content.dto.ArticleMapper;
 import com.dmdr.personal.portal.content.dto.ArticleResponse;
 import com.dmdr.personal.portal.content.model.Article;
 import com.dmdr.personal.portal.content.service.ArticleService;
+import com.dmdr.personal.portal.service.CurrentUserService;
 import com.dmdr.personal.portal.users.model.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

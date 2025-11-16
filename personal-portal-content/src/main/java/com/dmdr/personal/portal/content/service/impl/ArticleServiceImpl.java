@@ -52,10 +52,10 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     @Transactional
     public Article createArticle(CreateArticleRequest request, UUID authorId) {
-        // Validate that allowed users can only be set for PRIVATE articles
-        if (!CollectionUtils.isEmpty(request.getAllowedUserIds()) 
-                && request.getStatus() != ArticleStatus.PRIVATE) {
-            throw new IllegalArgumentException("Allowed users can only be set for PRIVATE articles");
+        // Validate that allowed users cannot be set for PUBLISHED articles
+        if (!CollectionUtils.isEmpty(request.getAllowedUserIds())
+                && request.getStatus() == ArticleStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Allowed users cannot be set for PUBLISHED articles");
         }
 
         Article article = new Article();
@@ -123,8 +123,8 @@ public class ArticleServiceImpl implements ArticleService {
         if (CollectionUtils.isEmpty(allowedUserIds)) {
             return null;
         }
-        if (status != ArticleStatus.PRIVATE) {
-            throw new IllegalArgumentException("Allowed users can only be set for PRIVATE articles");
+        if (status == ArticleStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Allowed users cannot be set for PUBLISHED articles");
         }
         List<User> users = userService.findByIds(allowedUserIds);
         if (users.size() != allowedUserIds.size()) {
@@ -177,11 +177,11 @@ public class ArticleServiceImpl implements ArticleService {
         Article existingArticle = articleRepository.findByArticleId(articleId)
                 .orElseThrow(() -> new IllegalArgumentException("Article with id " + articleId + " not found"));
 
-        // Validate that allowed users can only be set for PRIVATE articles
+        // Validate that allowed users cannot be set for PUBLISHED articles
         ArticleStatus newStatus = request.getStatus() != null ? request.getStatus() : existingArticle.getStatus();
-        if (!CollectionUtils.isEmpty(request.getAllowedUserIds()) 
-                && newStatus != ArticleStatus.PRIVATE) {
-            throw new IllegalArgumentException("Allowed users can only be set for PRIVATE articles");
+        if (!CollectionUtils.isEmpty(request.getAllowedUserIds())
+                && newStatus == ArticleStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Allowed users cannot be set for PUBLISHED articles");
         }
 
         // Check if slug is being changed and if the new slug already exists

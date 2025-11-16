@@ -2,7 +2,6 @@ package com.dmdr.personal.portal.content.dto;
 
 import com.dmdr.personal.portal.content.model.Article;
 import com.dmdr.personal.portal.content.model.MediaEntity;
-import com.dmdr.personal.portal.content.model.Tag;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Set;
@@ -30,10 +29,16 @@ public class ArticleMapper {
         response.setPublishedAt(article.getPublishedAt());
 
         if (!CollectionUtils.isEmpty(article.getTags())) {
-            Set<UUID> tagIds = article.getTags().stream()
-                    .map(Tag::getTagId)
+            Set<TagDto> tags = article.getTags().stream()
+                    .map(t -> {
+                        TagDto dto = new TagDto();
+                        dto.setTagId(t.getTagId());
+                        dto.setName(t.getName());
+                        dto.setSlug(t.getSlug());
+                        return dto;
+                    })
                     .collect(Collectors.toSet());
-            response.setTagIds(tagIds);
+            response.setTags(tags);
         }
 
         if (!CollectionUtils.isEmpty(article.getMediaFiles())) {
