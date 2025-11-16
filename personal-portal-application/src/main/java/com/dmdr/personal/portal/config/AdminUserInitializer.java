@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.config;
 
+import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.dto.CreateRoleRequest;
@@ -15,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Slf4j
 public class AdminUserInitializer implements CommandLineRunner {
-
-    private static final String ADMIN_ROLE = "ROLE_ADMIN";
 
     private final UserRepository userRepository;
     private final RoleService roleService;
@@ -41,8 +40,8 @@ public class AdminUserInitializer implements CommandLineRunner {
             log.info("Admin user already exists with email: {}", adminEmail);
             return;
         }
-        Role adminRole = roleService.findByName(ADMIN_ROLE)
-                .orElseGet(() -> roleService.createRole(new CreateRoleRequest(ADMIN_ROLE)));
+        Role adminRole = roleService.findByName(SystemRole.ADMIN.getAuthority())
+                .orElseGet(() -> roleService.createRole(new CreateRoleRequest(SystemRole.ADMIN.getAuthority())));
 
         User adminUser = new User();
         adminUser.setEmail(adminEmail);

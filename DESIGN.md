@@ -84,13 +84,28 @@ Stores information for both Coaches and Clients, differentiated by a role.
 
 #### `articles`
 Represents a single blog post.
-*   `id` (PK, UUID)
-*   `title` (String)
-*   `slug` (String, Unique)
-*   `content` (Text)
-*   `author_id` (FK to `users.id`)
-*   `created_at`, `updated_at` (Timestamps)
-*   *Relationship: Many-to-One with `users` (an author can have many articles).*
+*   `article_id` (PK, UUID)
+*   `title` (String, required)
+*   `slug` (String, Unique, URL-friendly version of the title)
+*   `content` (Text, required)
+*   `excerpt` (Text, optional - short summary for list views)
+*   `status` (Enum: 'DRAFT', 'PUBLISHED', 'PRIVATE', 'ARCHIVED')
+*   `author_id` (FK to `users.id`, required)
+*   `featured_image_id` (FK to `media.media_id`, nullable)
+*   `created_at`, `updated_at` (Timestamps, required)
+*   `published_at` (Timestamp, nullable - set when status changes to PUBLISHED)
+*   *Relationships:*
+    *   *Many-to-One with `users` via `author_id` (an author can have many articles).*
+    *   *Many-to-Many with `tags` via `article_tags` join table (an article can have many tags, a tag can be applied to many articles).*
+    *   *Many-to-Many with `users` via `private_article_permissions` join table (for private article access control - an article can be assigned to many users, a user can have access to many private articles).*
+
+#### `tags`
+Represents a content categorization tag.
+*   `tag_id` (PK, UUID)
+*   `name` (String, Unique, required)
+*   `slug` (String, Unique, URL-friendly version of the name, required)
+*   *Relationships:*
+    *   *Many-to-Many with `articles` via `article_tags` join table (a tag can be applied to many articles, an article can have many tags).*
 
 #### `available_slots`
 Represents a time slot the coach has made available for booking.
@@ -110,6 +125,31 @@ Represents a confirmed appointment, linking a client to a specific slot.
 *   *Relationships:*
     *   *Many-to-One with `users` (a client can have many bookings).*
     *   *One-to-One with `available_slots` (a slot can only be booked once).*
+
+### Entity Relationships
+
+#### Article Relationships
+
+**Article ↔ Tag (Many-to-Many)**
+*   **Join Table:** `article_tags`
+*   **Purpose:** Categorize articles with tags for organization and filtering
+*   **Columns:**
+    *   `article_id` (FK to `articles.article_id`)
+    *   `tag_id` (FK to `tags.tag_id`)
+*   **Business Rule:** PUBLISHED articles with tags are available for all users (no persistence needed for this rule - it's enforced at the application level)
+
+**Article ↔ User (Many-to-Many for Private Access)**
+*   **Join Table:** `private_article_permissions`
+*   **Purpose:** Control access to PRIVATE articles by assigning specific users
+*   **Columns:**
+    *   `article_id` (FK to `articles.article_id`)
+    *   `user_id` (FK to `users.id`)
+*   **Business Rule:** Only users listed in this join table can access articles with `status = 'PRIVATE'`. PUBLISHED articles are available to all users without requiring entries in this table.
+
+**Article → User (Many-to-One for Author)**
+*   **Foreign Key:** `articles.author_id` → `users.id`
+*   **Purpose:** Track the author/creator of each article
+*   **Business Rule:** Every article must have an author
 
 ## 6. API Design
 

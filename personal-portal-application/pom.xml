@@ -24,6 +24,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.dmdr</groupId>
+            <artifactId>personal-portal-content</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>

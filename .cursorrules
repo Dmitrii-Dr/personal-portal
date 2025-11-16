@@ -1,0 +1,13 @@
+# Project Rules for Cursor
+
+- Controllers must stay minimal and orchestration-only:
+  - Keep controller classes as simple as possible.
+  - Do not place business logic in controllers.
+  - Delegate all business rules, validation, and data access to service layer(s).
+  - Controllers should only:
+    - Parse/validate request shape (DTO-level), 
+    - Call service methods,
+    - Map entities to response DTOs,
+    - Set appropriate HTTP status codes.
+
+

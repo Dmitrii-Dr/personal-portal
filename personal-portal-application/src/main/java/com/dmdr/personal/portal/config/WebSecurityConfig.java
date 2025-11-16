@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.config;
 
+import com.dmdr.personal.portal.core.security.SystemRole;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,8 +15,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig {
-
-    private static final String ROLE_ADMIN = "ROLE_ADMIN";
 
     private final CorsConfigurationSource corsConfigurationSource;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -46,7 +45,7 @@ public class WebSecurityConfig {
                 // Public endpoints - health check and authentication endpoints
                 .requestMatchers("/api/v*/public/**", "/api/v1/health", "/api/v1/auth/login", "/api/v1/auth/registry").permitAll()
                 // Admin endpoints - require ADMIN role
-                .requestMatchers("/api/v*/admin/**").hasAuthority(ROLE_ADMIN)
+                .requestMatchers("/api/v*/admin/**").hasAuthority(SystemRole.ADMIN.getAuthority())
                 // All other endpoints require authentication (USER token)
                 .anyRequest().authenticated()
             );
