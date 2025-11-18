@@ -7,6 +7,7 @@ import com.dmdr.personal.portal.booking.model.AvailabilityOverride;
 import com.dmdr.personal.portal.booking.model.OverrideStatus;
 import com.dmdr.personal.portal.booking.repository.AvailabilityOverrideRepository;
 import com.dmdr.personal.portal.booking.service.AvailabilityOverrideService;
+import com.dmdr.personal.portal.booking.service.BookingSettingsService;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,9 +24,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideService {
 
 	private final AvailabilityOverrideRepository repository;
+	
+	private final BookingSettingsService bookingSettingsService;
+	private final AvailabilityOverrideValidator validator;
 
-	public AvailabilityOverrideServiceImpl(AvailabilityOverrideRepository repository) {
+	public AvailabilityOverrideServiceImpl(
+		AvailabilityOverrideRepository repository,
+		BookingSettingsService bookingSettingsService,
+		AvailabilityOverrideValidator validator
+	) {
 		this.repository = repository;
+		this.bookingSettingsService = bookingSettingsService;
+		this.validator = validator;
 	}
 
 	@Override
@@ -39,7 +49,9 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 	@Override
 	@Transactional
 	public AvailabilityOverrideResponse create(CreateAvailabilityOverrideRequest request) {
-		ZoneId zoneId = ZoneId.of(request.getTimezone());
+		// Get timezone from BookingSettings
+		String timezone = bookingSettingsService.getDefaultTimezone();
+		ZoneId zoneId = ZoneId.of(timezone);
 		
 		validateOverrideDateNotInPast(request.getOverrideDate(), zoneId);
 		
@@ -49,11 +61,15 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 		ZonedDateTime startZoned = startDateTime.atZone(zoneId);
 		ZonedDateTime endZoned = endDateTime.atZone(zoneId);
 		
+		// Validate that override is within a single day in origin timezone
+		validateOverrideWithinSingleDay(startZoned, endZoned, zoneId);
+		
 		Instant startInstant = startZoned.toInstant();
 		Instant endInstant = endZoned.toInstant();
 		
 		validateOverrideDuration(startInstant, endInstant);
 		validateNoOverlappingActiveOverrides(startInstant, endInstant, null);
+		validator.validateOverrideConsistencyWithRules(startInstant, endInstant, request.isAvailable(), timezone);
 		
 		ZoneOffset utcOffset = zoneId.getRules().getOffset(startInstant);
 		
@@ -61,7 +77,7 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 		entity.setOverideStartInstant(startInstant);
 		entity.setOverrideEndInstant(endInstant);
 		entity.setAvailable(request.isAvailable());
-		entity.setTimezone(request.getTimezone());
+		entity.setTimezone(timezone);
 		entity.setUtcOffset(utcOffset.toString());
 		entity.setOverrideStatus(OverrideStatus.ACTIVE);
 		AvailabilityOverride saved = repository.save(entity);
@@ -74,8 +90,9 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 		AvailabilityOverride entity = repository.findById(id)
 			.orElseThrow(() -> new IllegalArgumentException("AvailabilityOverride not found: " + id));
 		
-		ZoneId zoneId = request.getTimezone() != null 
-			? ZoneId.of(request.getTimezone()) 
+		// Use existing timezone from entity (timezone cannot be updated)
+		ZoneId zoneId = entity.getTimezone() != null 
+			? ZoneId.of(entity.getTimezone()) 
 			: ZoneId.systemDefault();
 		
 		validateOverrideDateNotInPast(request.getOverrideDate(), zoneId);
@@ -86,18 +103,23 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 		ZonedDateTime startZoned = startDateTime.atZone(zoneId);
 		ZonedDateTime endZoned = endDateTime.atZone(zoneId);
 		
+		// Validate that override is within a single day in origin timezone
+		validateOverrideWithinSingleDay(startZoned, endZoned, zoneId);
+		
 		Instant startInstant = startZoned.toInstant();
 		Instant endInstant = endZoned.toInstant();
 		
 		validateOverrideDuration(startInstant, endInstant);
 		validateNoOverlappingActiveOverrides(startInstant, endInstant, id);
+		String timezone = entity.getTimezone();
+		validator.validateOverrideConsistencyWithRules(startInstant, endInstant, request.isAvailable(), timezone);
 		
 		ZoneOffset utcOffset = zoneId.getRules().getOffset(startInstant);
 		
 		entity.setOverideStartInstant(startInstant);
 		entity.setOverrideEndInstant(endInstant);
 		entity.setAvailable(request.isAvailable());
-		entity.setTimezone(request.getTimezone());
+		// timezone is preserved from existing entity (cannot be updated)
 		entity.setUtcOffset(utcOffset.toString());
 		AvailabilityOverride saved = repository.save(entity);
 		return toResponse(saved);
@@ -114,6 +136,17 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 		if (overrideDate.isBefore(today)) {
 			throw new IllegalArgumentException(
 				"Override date cannot be in the past. Provided date: " + overrideDate + ", today: " + today);
+		}
+	}
+
+	private static void validateOverrideWithinSingleDay(ZonedDateTime startZoned, ZonedDateTime endZoned, ZoneId zoneId) {
+		LocalDate startDate = startZoned.toLocalDate();
+		LocalDate endDate = endZoned.toLocalDate();
+		
+		if (!startDate.equals(endDate)) {
+			throw new IllegalArgumentException(
+				"Override cannot span two days in origin timezone. " +
+				"Start date: " + startDate + ", End date: " + endDate + " (timezone: " + zoneId + ")");
 		}
 	}
 

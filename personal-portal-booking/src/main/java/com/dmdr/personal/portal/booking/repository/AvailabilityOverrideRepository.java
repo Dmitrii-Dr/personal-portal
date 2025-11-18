@@ -21,5 +21,9 @@ public interface AvailabilityOverrideRepository extends JpaRepository<Availabili
 		@Param("status") OverrideStatus status,
 		@Param("excludeId") Long excludeId
 	);
+
+	@Query("SELECT COUNT(ao) FROM AvailabilityOverride ao " +
+		"WHERE ao.overrideStatus != :archivedStatus")
+	long countNonArchivedOverrides(@Param("archivedStatus") OverrideStatus archivedStatus);
 }
 

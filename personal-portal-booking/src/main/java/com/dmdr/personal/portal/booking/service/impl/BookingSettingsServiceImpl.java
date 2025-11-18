@@ -2,7 +2,11 @@ package com.dmdr.personal.portal.booking.service.impl;
 
 import com.dmdr.personal.portal.booking.dto.booking.BookingSettingsResponse;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingSettingsRequest;
+import com.dmdr.personal.portal.booking.model.AvailabilityRule;
 import com.dmdr.personal.portal.booking.model.BookingSettings;
+import com.dmdr.personal.portal.booking.model.OverrideStatus;
+import com.dmdr.personal.portal.booking.repository.AvailabilityOverrideRepository;
+import com.dmdr.personal.portal.booking.repository.AvailabilityRuleRepository;
 import com.dmdr.personal.portal.booking.repository.BookingSettingsRepository;
 import com.dmdr.personal.portal.booking.service.BookingSettingsService;
 import java.time.Instant;
@@ -15,9 +19,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingSettingsServiceImpl implements BookingSettingsService {
 
     private final BookingSettingsRepository repository;
+    private final AvailabilityRuleRepository availabilityRuleRepository;
+    private final AvailabilityOverrideRepository availabilityOverrideRepository;
 
-    public BookingSettingsServiceImpl(BookingSettingsRepository repository) {
+    public BookingSettingsServiceImpl(
+        BookingSettingsRepository repository,
+        AvailabilityRuleRepository availabilityRuleRepository,
+        AvailabilityOverrideRepository availabilityOverrideRepository
+    ) {
         this.repository = repository;
+        this.availabilityRuleRepository = availabilityRuleRepository;
+        this.availabilityOverrideRepository = availabilityOverrideRepository;
     }
 
     @Override
@@ -51,13 +63,15 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         settings.setBookingCancelationInterval(request.getBookingCancelationInterval());
         settings.setBookingUpdatingInterval(request.getBookingUpdatingInterval());
 
-        if(settings.getDefaultTimezone() != request.getDefaultTimezone()) {
+        if(!settings.getDefaultTimezone().equals(request.getDefaultTimezone())) {
+            // Validate that there are no non-ARCHIVED rules or overrides before changing timezone
+            validateNoNonArchivedRulesOrOverrides();
+            
             // Update timezone and calculate offset dynamically
             String calculatedOffset = calculateOffsetFromTimezone(request.getDefaultTimezone());
             settings.setDefaultTimezone(request.getDefaultTimezone());
             settings.setDefaultUtcOffset(calculatedOffset);
-        }
-        
+        }        
         BookingSettings saved = repository.save(settings);
         return toResponse(saved);
     }
@@ -71,6 +85,48 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         resp.setDefaultTimezone(settings.getDefaultTimezone());
         resp.setDefaultUtcOffset(settings.getDefaultUtcOffset());
         return resp;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getDefaultTimezone() {
+        BookingSettings settings = repository.findTopByOrderByIdAsc()
+            .orElseThrow(() -> new IllegalStateException(
+                "BookingSettings not found. Please configure booking settings before creating rules or overrides."));
+        
+        String timezone = settings.getDefaultTimezone();
+        if (timezone == null || timezone.isBlank()) {
+            throw new IllegalStateException(
+                "BookingSettings defaultTimezone is not configured. Please set a default timezone in booking settings.");
+        }
+        
+        return timezone;
+    }
+
+    private void validateNoNonArchivedRulesOrOverrides() {
+        long nonArchivedRulesCount = availabilityRuleRepository.countNonArchivedRules(
+            AvailabilityRule.RuleStatus.ARCHIVED);
+        long nonArchivedOverridesCount = availabilityOverrideRepository.countNonArchivedOverrides(
+            OverrideStatus.ARCHIVED);
+
+        if (nonArchivedRulesCount > 0 || nonArchivedOverridesCount > 0) {
+            StringBuilder errorMessage = new StringBuilder(
+                "Cannot change timezone: there are existing rules or overrides that are not ARCHIVED. ");
+            
+            if (nonArchivedRulesCount > 0) {
+                errorMessage.append("Found ").append(nonArchivedRulesCount)
+                    .append(" non-ARCHIVED rule(s). ");
+            }
+            
+            if (nonArchivedOverridesCount > 0) {
+                errorMessage.append("Found ").append(nonArchivedOverridesCount)
+                    .append(" non-ARCHIVED override(s). ");
+            }
+            
+            errorMessage.append("Please delete or archive all rules and overrides before changing the timezone.");
+            
+            throw new IllegalArgumentException(errorMessage.toString());
+        }
     }
 
     private static String calculateOffsetFromTimezone(String timezone) {

@@ -21,7 +21,5 @@ public class UpdateAvailabilityOverrideRequest {
 	@NotNull
 	@JsonProperty("isAvailable")
 	private boolean isAvailable;
-	@NotNull
-	private String timezone;
 }
 

@@ -24,7 +24,6 @@ public class CreateAvailabilityRuleRequest {
 	private LocalDate ruleStartDate;
 	@NotNull
 	private LocalDate ruleEndDate;
-	private String timezone;
 	@NotNull
 	private AvailabilityRule.RuleStatus ruleStatus;
 }

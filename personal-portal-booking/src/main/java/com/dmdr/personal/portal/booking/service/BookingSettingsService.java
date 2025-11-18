@@ -6,6 +6,7 @@ import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingSettingsRequest
 public interface BookingSettingsService {
 	BookingSettingsResponse getSettings();
 	BookingSettingsResponse updateSettings(UpdateBookingSettingsRequest request);
+	String getDefaultTimezone();
 }
 
 
