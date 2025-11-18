@@ -57,6 +57,9 @@ public class AvailabilityRule {
 	@Column(name = "utc_offset", length = 10)
 	private String utcOffset;
 
+	//ruleStatus must be represented as string in DB ("ACTIVE" "INACTIVE" "ARCHIVED")
+	//ruleStatus will be automatically move to ARCHIVED after ruleEndInstant.
+	//Rename it ti Status 	
 	private RuleStatus ruleStatus;
 
 // Rule can't be turn ACTIVE if there is another ACTIVE Rule which cross this one.
@@ -67,7 +70,8 @@ public class AvailabilityRule {
 
     public enum RuleStatus {
         ACTIVE,
-        INACTIVE
+        INACTIVE,
+		ARCHIVED
     }
 }
 

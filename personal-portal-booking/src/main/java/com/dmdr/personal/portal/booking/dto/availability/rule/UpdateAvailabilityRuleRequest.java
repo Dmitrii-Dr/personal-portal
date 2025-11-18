@@ -13,6 +13,8 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UpdateAvailabilityRuleRequest {
+	//TODO add rule id field
+	
 	@NotEmpty
 	private List<DayOfWeek> daysOfWeek;
 	@NotNull
