@@ -57,6 +57,7 @@ public class AuthController {
     }
 
     @PostMapping("/registry")
+    //TODO probably registry should not return token, but only status code 201
     public ResponseEntity<AuthResponse> registry(@Valid @RequestBody CreateUserRequest request) {
         // Validate that user doesn't exist
         if (userService.findByEmail(request.getEmail()).isPresent()) {

@@ -231,8 +231,10 @@ public class ArticleServiceImpl implements ArticleService {
                 existingArticle.getMediaFiles().clear();
             }
         }
-
-        if (request.getAllowedUserIds() != null) {
+        if(request.getStatus() == ArticleStatus.PUBLISHED) {
+            existingArticle.getAllowedUsers().clear();
+        }
+        else if (request.getAllowedUserIds() != null) {
             Set<User> allowedUsers = getAllowedUsersIfProvided(request.getAllowedUserIds(), newStatus);
             if (allowedUsers != null) {
                 existingArticle.getAllowedUsers().clear();
@@ -241,6 +243,8 @@ public class ArticleServiceImpl implements ArticleService {
                 existingArticle.getAllowedUsers().clear();
             }
         }
+        
+        
 
         return articleRepository.save(existingArticle);
     }
