@@ -11,8 +11,8 @@ public class BookingResponse {
 	private Long id;
 	private Long sessionTypeId;
 	private String sessionTypeName;
-	private Instant startTime;
-	private Instant endTime;
+	private Instant startTimeInstant;
+	private Instant endTimeInstant;
 	private BookingStatus status;
 	private String clientMessage;
 	private Instant createdAt;

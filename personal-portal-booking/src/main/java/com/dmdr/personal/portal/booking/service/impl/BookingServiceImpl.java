@@ -62,17 +62,18 @@ public class BookingServiceImpl implements BookingService {
 			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + request.getSessionTypeId()));
 
 		// Calculate endTime: startTime + duration + buffer
-		Instant endTime = request.getStartTime().plusSeconds(
+		Instant endTime = request.getStartTimeInstant().plusSeconds(
 			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
 		);
 
+		//TODO enhance validation logic with checking overrides and already booked sesssions 
 		// Validate booking availability (check that startTime and endTime are within available hours)
-		availabilityService.validateBookingAvailability(request.getStartTime(), endTime);
+		availabilityService.validateBookingAvailability(request.getStartTimeInstant(), endTime);
 
 		Booking entity = new Booking();
 		entity.setClient(client);
 		entity.setSessionType(sessionType);
-		entity.setStartTime(request.getStartTime());
+		entity.setStartTime(request.getStartTimeInstant());
 		// Set endTime (includes duration + buffer for validation purposes)
 		entity.setEndTime(endTime);
 		entity.setStatus(BookingStatus.PENDING_APPROVAL);
@@ -150,8 +151,8 @@ public class BookingServiceImpl implements BookingService {
 		resp.setId(entity.getId());
 		resp.setSessionTypeId(entity.getSessionType().getId());
 		resp.setSessionTypeName(entity.getSessionType().getName());
-		resp.setStartTime(entity.getStartTime());
-		resp.setEndTime(entity.getEndTime());
+		resp.setStartTimeInstant(entity.getStartTime());
+		resp.setEndTimeInstant(entity.getEndTime());
 		resp.setStatus(entity.getStatus());
 		resp.setClientMessage(entity.getClientMessage());
 		resp.setCreatedAt(entity.getCreatedAt());

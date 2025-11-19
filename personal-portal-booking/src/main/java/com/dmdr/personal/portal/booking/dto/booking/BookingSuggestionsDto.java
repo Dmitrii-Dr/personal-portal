@@ -2,6 +2,7 @@ package com.dmdr.personal.portal.booking.dto.booking;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.Instant;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,6 +19,7 @@ public class BookingSuggestionsDto {
 	@Getter
 	@Setter
 	public static class Slot {
+		private Instant startTimeInstant;
 		private LocalTime startTime;
 		private LocalTime endTime;
 	}

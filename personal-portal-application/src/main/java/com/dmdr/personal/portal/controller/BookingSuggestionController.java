@@ -85,6 +85,7 @@ public class BookingSuggestionController {
 					.toLocalTime();
 				slot.setStartTime(startTime);
 				slot.setEndTime(endTime);
+				slot.setStartTimeInstant(suggestion.getStartTimeInstant());
 				return slot;
 			})
 			.collect(Collectors.toList());

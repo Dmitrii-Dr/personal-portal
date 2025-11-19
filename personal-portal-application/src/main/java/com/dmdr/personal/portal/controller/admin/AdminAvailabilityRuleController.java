@@ -43,6 +43,9 @@ public class AdminAvailabilityRuleController {
 		@PathVariable("id") Long id,
 		@Valid @RequestBody UpdateAvailabilityRuleRequest request
 	) {
+		if (request.getId() == null || !id.equals(request.getId())) {
+			throw new IllegalArgumentException("Path variable id (" + id + ") must match request body id (" + request.getId() + ")");
+		}
 		return ResponseEntity.ok(availabilityRuleService.update(id, request));
 	}
 

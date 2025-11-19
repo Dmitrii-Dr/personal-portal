@@ -15,7 +15,7 @@ public class CreateBookingRequest {
 
 	@NotNull
 	@Future
-	private Instant startTime;
+	private Instant startTimeInstant;
 
 	@Size(max = 2000)
 	private String clientMessage;
