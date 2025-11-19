@@ -142,14 +142,7 @@ public class BookingServiceImpl implements BookingService {
 	}
 
 	private BookingSettings getBookingSettings() {
-		return bookingSettingsRepository.findTopByOrderByIdAsc()
-			.orElseGet(() -> {
-				BookingSettings s = new BookingSettings();
-				s.setBookingSlotsInterval(15);
-				s.setBookingCancelationInterval(0);
-				s.setBookingUpdatingInterval(0);
-				return s;
-			});
+		return bookingSettingsRepository.mustFindTopByOrderByIdAsc();
 	}
 
 	private static BookingResponse toResponse(Booking entity) {

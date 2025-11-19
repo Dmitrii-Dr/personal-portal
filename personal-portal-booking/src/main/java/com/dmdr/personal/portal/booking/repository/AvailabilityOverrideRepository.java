@@ -25,5 +25,27 @@ public interface AvailabilityOverrideRepository extends JpaRepository<Availabili
 	@Query("SELECT COUNT(ao) FROM AvailabilityOverride ao " +
 		"WHERE ao.overrideStatus != :archivedStatus")
 	long countNonArchivedOverrides(@Param("archivedStatus") OverrideStatus archivedStatus);
+
+	@Query("SELECT ao FROM AvailabilityOverride ao " +
+		"WHERE ao.overrideStatus = :status " +
+		"AND ao.isAvailable = true " +
+		"AND ao.overideStartInstant < :endInstant " +
+		"AND ao.overrideEndInstant > :startInstant")
+	List<AvailabilityOverride> findOverlappingAvailableOverrides(
+		@Param("startInstant") Instant startInstant,
+		@Param("endInstant") Instant endInstant,
+		@Param("status") OverrideStatus status
+	);
+
+	@Query("SELECT ao FROM AvailabilityOverride ao " +
+		"WHERE ao.overrideStatus = :status " +
+		"AND ao.isAvailable = false " +
+		"AND ao.overideStartInstant < :endInstant " +
+		"AND ao.overrideEndInstant > :startInstant")
+	List<AvailabilityOverride> findOverlappingUnavailableOverrides(
+		@Param("startInstant") Instant startInstant,
+		@Param("endInstant") Instant endInstant,
+		@Param("status") OverrideStatus status
+	);
 }
 

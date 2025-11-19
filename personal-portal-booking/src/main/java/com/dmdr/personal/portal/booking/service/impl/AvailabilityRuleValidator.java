@@ -22,10 +22,16 @@ public class AvailabilityRuleValidator {
 		this.repository = repository;
 	}
 
-	public void validateRuleStartTime(Instant ruleStartInstant) {
+	public void validateRuleStartTime(Instant ruleStartInstant, String timezone) {
 		Instant now = Instant.now();
 		if (ruleStartInstant.isBefore(now)) {
-			throw new IllegalArgumentException("Rule start time cannot be before the current time");
+			// Both ruleStartInstant and now are in UTC, but provide timezone context in error message
+			ZoneId zoneId = ZoneId.of(timezone);
+			throw new IllegalArgumentException(
+				"Rule start time cannot be before the current time. " +
+				"Rule start time: " + ruleStartInstant.atZone(zoneId) + " (" + timezone + "), " +
+				"Current time: " + now.atZone(zoneId) + " (" + timezone + ")"
+			);
 		}
 	}
 

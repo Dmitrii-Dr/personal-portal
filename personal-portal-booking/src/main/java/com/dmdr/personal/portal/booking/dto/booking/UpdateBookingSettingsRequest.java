@@ -10,12 +10,19 @@ import lombok.Setter;
 public class UpdateBookingSettingsRequest {
 
 	@Min(0)
+	@NotNull
 	private int bookingSlotsInterval;
 
+	@Min(10)
+	@NotNull
+	private int bookingFirstSlotInterval;
+
 	@Min(0)
+	@NotNull
 	private int bookingCancelationInterval;
 
 	@Min(0)
+	@NotNull
 	private int bookingUpdatingInterval;
 
 	@NotNull

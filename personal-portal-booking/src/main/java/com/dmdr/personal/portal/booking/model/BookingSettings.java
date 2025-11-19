@@ -31,6 +31,9 @@ public class BookingSettings {
 	@Column(name = "booking_slots_interval", nullable = false)
 	private int bookingSlotsInterval;
 
+	@Column(name = "booking_first_slot_interval", nullable = false)
+	private int bookingFirstSlotInterval;
+
 	@Column(name = "booking_cancelation_interval", nullable = false)
 	private int bookingCancelationInterval;
 

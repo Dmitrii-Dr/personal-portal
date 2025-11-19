@@ -49,12 +49,12 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 		String timezone = bookingSettingsService.getDefaultTimezone();
 		ZoneId zoneId = ZoneId.of(timezone);
 
-		// Transform LocalDate to LocalDateTime (start at 00:00:00, end at 23:59:59) then to Instant
-		Instant ruleStartInstant = request.getRuleStartDate().atStartOfDay().atZone(zoneId).toInstant();
-		Instant ruleEndInstant = request.getRuleEndDate().atTime(23, 59, 59).atZone(zoneId).toInstant();
+		// Transform LocalDate to LocalDateTime using availableStartTime and availableEndTime, then to Instant
+		Instant ruleStartInstant = request.getRuleStartDate().atTime(request.getAvailableStartTime()).atZone(zoneId).toInstant();
+		Instant ruleEndInstant = request.getRuleEndDate().atTime(request.getAvailableEndTime()).atZone(zoneId).toInstant();
 
-		// Validate rule start time
-		validator.validateRuleStartTime(ruleStartInstant);
+		// Validate rule start time (both ruleStartInstant and Instant.now() are in UTC)
+		validator.validateRuleStartTime(ruleStartInstant, timezone);
 
 		// Validate overlapping rules (timezone and active rule overlap) - single DB query
 		validator.validateOverlappingRules(request, ruleStartInstant, ruleEndInstant, timezone);
@@ -88,9 +88,9 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 		String timezone = entity.getTimezone();
 		ZoneId zoneId = ZoneId.of(timezone);
 
-		// Transform LocalDate to LocalDateTime (start at 00:00:00, end at 23:59:59) then to Instant
-		Instant ruleStartInstant = request.getRuleStartDate().atStartOfDay().atZone(zoneId).toInstant();
-		Instant ruleEndInstant = request.getRuleEndDate().atTime(23, 59, 59).atZone(zoneId).toInstant();
+		// Transform LocalDate to LocalDateTime using availableStartTime and availableEndTime, then to Instant
+		Instant ruleStartInstant = request.getRuleStartDate().atTime(request.getAvailableStartTime()).atZone(zoneId).toInstant();
+		Instant ruleEndInstant = request.getRuleEndDate().atTime(request.getAvailableEndTime()).atZone(zoneId).toInstant();
 
 		// Validate overlapping rules (timezone and active rule overlap) - single DB query
 		validator.validateOverlappingRules(request, ruleStartInstant, ruleEndInstant, timezone, id);

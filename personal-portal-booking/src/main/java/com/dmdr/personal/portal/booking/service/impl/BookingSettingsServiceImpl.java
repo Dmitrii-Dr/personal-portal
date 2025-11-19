@@ -35,31 +35,17 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
     @Override
     @Transactional(readOnly = true)
     public BookingSettingsResponse getSettings() {
-        BookingSettings settings = repository.findTopByOrderByIdAsc()
-                .orElseGet(() -> {
-                    BookingSettings s = new BookingSettings();
-                    s.setBookingSlotsInterval(15);
-                    s.setBookingCancelationInterval(0);
-                    s.setBookingUpdatingInterval(0);
-                    s.setDefaultTimezone("UTC");
-                    s.setDefaultUtcOffset("+00:00");
-                    return s;
-                });
+        BookingSettings settings = repository.mustFindTopByOrderByIdAsc();
         return toResponse(settings);
     }
 
     @Override
     @Transactional
     public BookingSettingsResponse updateSettings(UpdateBookingSettingsRequest request) {
-        // TODO Create default settings when deploy application
-        BookingSettings settings = repository.findTopByOrderByIdAsc().orElseGet(() -> {
-            BookingSettings s = new BookingSettings();
-            s.setDefaultTimezone("UTC");
-            s.setDefaultUtcOffset("+00:00");
-            return s;
-        });
+        BookingSettings settings = repository.mustFindTopByOrderByIdAsc();
         
         settings.setBookingSlotsInterval(request.getBookingSlotsInterval());
+        settings.setBookingFirstSlotInterval(request.getBookingFirstSlotInterval());
         settings.setBookingCancelationInterval(request.getBookingCancelationInterval());
         settings.setBookingUpdatingInterval(request.getBookingUpdatingInterval());
 
@@ -80,6 +66,7 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         BookingSettingsResponse resp = new BookingSettingsResponse();
         resp.setId(settings.getId());
         resp.setBookingSlotsInterval(settings.getBookingSlotsInterval());
+        resp.setBookingFirstSlotInterval(settings.getBookingFirstSlotInterval());
         resp.setBookingCancelationInterval(settings.getBookingCancelationInterval());
         resp.setBookingUpdatingInterval(settings.getBookingUpdatingInterval());
         resp.setDefaultTimezone(settings.getDefaultTimezone());
@@ -90,9 +77,7 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
     @Override
     @Transactional(readOnly = true)
     public String getDefaultTimezone() {
-        BookingSettings settings = repository.findTopByOrderByIdAsc()
-            .orElseThrow(() -> new IllegalStateException(
-                "BookingSettings not found. Please configure booking settings before creating rules or overrides."));
+        BookingSettings settings = repository.mustFindTopByOrderByIdAsc();
         
         String timezone = settings.getDefaultTimezone();
         if (timezone == null || timezone.isBlank()) {
