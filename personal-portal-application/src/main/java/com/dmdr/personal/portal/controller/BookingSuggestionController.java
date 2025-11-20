@@ -45,7 +45,7 @@ public class BookingSuggestionController {
 
 		// Calculate booking suggestions
 		List<BookingSuggestion> suggestions = availabilityService.calculateBookingSuggestion(
-			sessionType.getDurationMinutes(),
+			sessionType,
 			suggestedDate,
 			timezone
 		);

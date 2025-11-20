@@ -66,8 +66,6 @@ public class BookingServiceImpl implements BookingService {
 			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
 		);
 
-		//TODO enhance validation logic with checking overrides and already booked sesssions 
-		// Validate booking availability (check that startTime and endTime are within available hours)
 		availabilityService.validateBookingAvailability(request.getStartTimeInstant(), endTime);
 
 		Booking entity = new Booking();
