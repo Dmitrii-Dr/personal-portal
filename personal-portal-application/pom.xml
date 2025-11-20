@@ -20,6 +20,11 @@
         </dependency>
         <dependency>
             <groupId>com.dmdr</groupId>
+            <artifactId>personal-portal-booking</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.dmdr</groupId>
             <artifactId>personal-portal-users</artifactId>
             <version>${project.version}</version>
         </dependency>

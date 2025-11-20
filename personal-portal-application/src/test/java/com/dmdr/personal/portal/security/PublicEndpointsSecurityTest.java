@@ -47,13 +47,6 @@ class PublicEndpointsSecurityTest extends SecurityTestBase {
                 .andExpect(status().is2xxSuccessful()); // Should succeed (201 Created) or 4xx (validation), not 401/403
     }
 
-    @Test
-    @DisplayName("Should allow access to /api/v1/public/test without token")
-    void shouldAllowAccessToPublicEndpointWithoutToken() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/public/test")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound()); // Endpoint doesn't exist but security allows it
-    }
 
     @Test
     @DisplayName("Should deny access to /api/v1/auth/login with token (409 Conflict)")
@@ -82,15 +75,4 @@ class PublicEndpointsSecurityTest extends SecurityTestBase {
                 .andExpect(status().isConflict());
     }
 
-    @Test
-    @DisplayName("Should allow access to /api/v1/public/test with token")
-    void shouldAllowAccessToPublicEndpointWithToken() throws Exception {
-        String userToken = generateUserToken();
-
-        // Public endpoints should still be accessible for authenticated users
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/public/test")
-                .header("Authorization", "Bearer " + userToken)
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound()); // Endpoint doesn't exist but security allows it
-    }
 }

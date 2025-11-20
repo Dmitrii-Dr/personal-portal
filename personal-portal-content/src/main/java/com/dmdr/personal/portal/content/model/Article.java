@@ -81,7 +81,7 @@ public class Article {
     @ToString.Exclude
     private Set<Tag> tags = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "private_article_permissions",
         joinColumns = @JoinColumn(name = "article_id"),
@@ -90,7 +90,7 @@ public class Article {
     @ToString.Exclude
     private Set<User> allowedUsers = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "article_media",
         joinColumns = @JoinColumn(name = "article_id"),
