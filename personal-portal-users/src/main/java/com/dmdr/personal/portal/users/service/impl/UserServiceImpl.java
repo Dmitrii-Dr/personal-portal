@@ -48,6 +48,8 @@ public class UserServiceImpl implements UserService {
         user.setEmail(request.getEmail());
         // Hash the password before saving
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
 
         // Assign ROLE_USER by default (create if it doesn't exist)
         Role userRole = roleService.findByName(DEFAULT_ROLE)
