@@ -64,7 +64,6 @@ public class AuthController {
             throw new IllegalArgumentException("User with email " + request.getEmail() + " already exists");
         }
 
-        // Create new user (password will be hashed in UserService)
         User user = userService.createUser(request);
 
         Set<String> roles = user.getRoles().stream()

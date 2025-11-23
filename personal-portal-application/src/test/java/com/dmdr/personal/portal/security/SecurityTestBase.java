@@ -47,7 +47,7 @@ public abstract class SecurityTestBase {
 
     protected void createTestUser(String email, String password) {
         try {
-            CreateUserRequest request = new CreateUserRequest(email, password);
+            CreateUserRequest request = new CreateUserRequest(email, password, "John", "Doe");
             userService.createUser(request);
         } catch (Exception e) {
             // User might already exist, ignore
