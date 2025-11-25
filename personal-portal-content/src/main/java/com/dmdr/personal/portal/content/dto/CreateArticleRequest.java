@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.Set;
+import java.util.UUID;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,5 +26,7 @@ public class CreateArticleRequest extends AbstractArticleRequest {
 
     @NotNull(message = "Status is required")
     private ArticleStatus status;
+
+    private Set<UUID> mediaIds;
 }
 
