@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/booking/available/slot")
+@RequestMapping("/api/v1/public/booking/available/slot")
 public class BookingSuggestionController {
 
 	private final AvailabilityService availabilityService;
