@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.users.service.impl;
 
+import com.dmdr.personal.portal.core.email.EmailService;
 import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.users.dto.UpdateUserProfileRequest;
 import com.dmdr.personal.portal.users.model.Role;
@@ -30,11 +31,14 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleService roleService;
+    private final EmailService emailService;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleService roleService) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, 
+                          RoleService roleService, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
+        this.emailService = emailService;
     }
 
     @Override
@@ -56,7 +60,17 @@ public class UserServiceImpl implements UserService {
                 .orElseGet(() -> roleService.createRole(new CreateRoleRequest(DEFAULT_ROLE)));
         user.addRole(userRole);
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Send welcome email asynchronously (non-blocking)
+        try {
+            emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
+        } catch (Exception e) {
+            // Log error but don't fail user creation if email fails
+            System.err.println("Failed to send welcome email to " + savedUser.getEmail() + ": " + e.getMessage());
+        }
+
+        return savedUser;
     }
 
     @Override
