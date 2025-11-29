@@ -19,5 +19,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		@Param("dayStart") Instant dayStart,
 		@Param("dayEnd") Instant dayEnd
 	);
+
+	List<Booking> findByStatusOrderByStartTimeAsc(BookingStatus status);
 }
 

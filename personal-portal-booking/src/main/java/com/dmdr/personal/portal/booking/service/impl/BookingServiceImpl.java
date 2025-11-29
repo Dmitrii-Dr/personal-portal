@@ -3,6 +3,9 @@ package com.dmdr.personal.portal.booking.service.impl;
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.CreateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingRequest;
+import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
+import com.dmdr.personal.portal.core.email.EmailService;
+import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.model.BookingSettings;
 import com.dmdr.personal.portal.booking.model.BookingStatus;
@@ -30,19 +33,25 @@ public class BookingServiceImpl implements BookingService {
 	private final UserRepository userRepository;
 	private final BookingSettingsRepository bookingSettingsRepository;
 	private final AvailabilityService availabilityService;
+	private final EmailService emailService;
+	private final com.dmdr.personal.portal.users.service.UserService userService;
 
 	public BookingServiceImpl(
 		BookingRepository bookingRepository,
 		SessionTypeRepository sessionTypeRepository,
 		UserRepository userRepository,
 		BookingSettingsRepository bookingSettingsRepository,
-		AvailabilityService availabilityService
+		AvailabilityService availabilityService,
+		EmailService emailService,
+		com.dmdr.personal.portal.users.service.UserService userService
 	) {
 		this.bookingRepository = bookingRepository;
 		this.sessionTypeRepository = sessionTypeRepository;
 		this.userRepository = userRepository;
 		this.bookingSettingsRepository = bookingSettingsRepository;
 		this.availabilityService = availabilityService;
+		this.emailService = emailService;
+		this.userService = userService;
 	}
 
 	@Override
@@ -78,6 +87,34 @@ public class BookingServiceImpl implements BookingService {
 		entity.setClientMessage(request.getClientMessage());
 
 		Booking saved = bookingRepository.save(entity);
+		
+		// Send email notification to all admin users
+		try {
+			List<User> adminUsers = userService.findByRoleName(SystemRole.ADMIN.getAuthority(), null);
+			String clientName = (client.getFirstName() != null ? client.getFirstName() : "") 
+				+ (client.getLastName() != null ? " " + client.getLastName() : "").trim();
+			if (clientName.isEmpty()) {
+				clientName = "Unknown User";
+			}
+			
+			for (User admin : adminUsers) {
+				try {
+					emailService.sendBookingRequestAdminEmail(
+						admin.getEmail(),
+						clientName,
+						client.getEmail(),
+						sessionType.getName(),
+						saved.getStartTime(),
+						saved.getClientMessage()
+					);
+				} catch (Exception e) {
+					System.err.println("Failed to send booking request email to admin " + admin.getEmail() + ": " + e.getMessage());
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Failed to send booking request notifications to admins: " + e.getMessage());
+		}
+		
 		return toResponse(saved);
 	}
 
@@ -138,6 +175,89 @@ public class BookingServiceImpl implements BookingService {
 		}
 
 		bookingRepository.delete(entity);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<BookingResponse> getAllByStatus(BookingStatus status) {
+		return bookingRepository.findByStatusOrderByStartTimeAsc(status).stream()
+			.map(BookingServiceImpl::toResponse)
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<Booking> getAllBookingsByStatus(BookingStatus status) {
+		return bookingRepository.findByStatusOrderByStartTimeAsc(status);
+	}
+
+	@Override
+	@Transactional
+	public BookingResponse updateStatus(UpdateBookingStatusRequest request) {
+		Booking booking = bookingRepository.findById(request.getId())
+			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + request.getId()));
+
+		BookingStatus currentStatus = booking.getStatus();
+		BookingStatus newStatus = request.getStatus();
+
+		// Validate status transition
+		validateStatusTransition(currentStatus, newStatus);
+
+		// Update status
+		booking.setStatus(newStatus);
+		Booking saved = bookingRepository.save(booking);
+
+		// Send email notifications for CONFIRMED or DECLINED
+		User client = booking.getClient();
+		if (newStatus == BookingStatus.CONFIRMED) {
+			try {
+				emailService.sendBookingConfirmationEmail(
+					client.getEmail(),
+					client.getFirstName(),
+					client.getLastName(),
+					booking.getSessionType().getName(),
+					booking.getStartTime()
+				);
+			} catch (Exception e) {
+				System.err.println("Failed to send booking confirmation email: " + e.getMessage());
+			}
+		} else if (newStatus == BookingStatus.DECLINED) {
+			try {
+				emailService.sendBookingRejectionEmail(
+					client.getEmail(),
+					client.getFirstName(),
+					client.getLastName(),
+					booking.getSessionType().getName(),
+					booking.getStartTime()
+				);
+			} catch (Exception e) {
+				System.err.println("Failed to send booking rejection email: " + e.getMessage());
+			}
+		}
+
+		return toResponse(saved);
+	}
+
+	private void validateStatusTransition(BookingStatus currentStatus, BookingStatus newStatus) {
+		if (currentStatus == newStatus) {
+			return; // No change, allow it
+		}
+
+		boolean isValid = switch (currentStatus) {
+			case PENDING_APPROVAL -> newStatus == BookingStatus.CONFIRMED 
+				|| newStatus == BookingStatus.DECLINED 
+				|| newStatus == BookingStatus.CANCELLED;
+			case CONFIRMED -> newStatus == BookingStatus.DECLINED 
+				|| newStatus == BookingStatus.CANCELLED 
+				|| newStatus == BookingStatus.COMPLETED;
+			default -> false;
+		};
+
+		if (!isValid) {
+			throw new IllegalArgumentException(
+				"Invalid status transition from " + currentStatus + " to " + newStatus
+			);
+		}
 	}
 
 	private BookingSettings getBookingSettings() {
