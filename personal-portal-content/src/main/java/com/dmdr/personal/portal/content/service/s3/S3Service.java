@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.content.service.s3;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -12,6 +13,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Service
+@Slf4j
 public class S3Service {
 
     private final S3Client s3Client;
@@ -23,11 +25,21 @@ public class S3Service {
     }
 
     public void uploadFile(String key, byte[] fileBytes) {
-        PutObjectRequest objectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(key)
-                .build();
-        s3Client.putObject(objectRequest, RequestBody.fromBytes(fileBytes));
+        try {
+            PutObjectRequest objectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+            s3Client.putObject(objectRequest, RequestBody.fromBytes(fileBytes));
+        } catch (S3Exception e) {
+            String errorMessage = String.format("S3 upload failed [%s]: %s", e.getClass().getSimpleName(), e.getMessage());
+            log.error(errorMessage, e);
+            throw new RuntimeException("Failed to upload file to S3", e);
+        } catch (Exception e) {
+            String errorMessage = String.format("S3 upload error [%s]: %s", e.getClass().getSimpleName(), e.getMessage());
+            log.error(errorMessage, e);
+            throw new RuntimeException("Failed to upload file to S3", e);
+        }
     }
 
     public byte[] downloadFile(String key) {
@@ -39,9 +51,12 @@ public class S3Service {
             ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
             return objectBytes.asByteArray();
         } catch (S3Exception e) {
-            // Handle file not found, etc.
-            // You might want to throw a custom exception here.
-            System.err.println("Error downloading file from S3: " + e.getMessage());
+            String errorMessage = String.format("S3 download failed [%s]: %s", e.getClass().getSimpleName(), e.getMessage());
+            log.error(errorMessage, e);
+            return null;
+        } catch (Exception e) {
+            String errorMessage = String.format("S3 download error [%s]: %s", e.getClass().getSimpleName(), e.getMessage());
+            log.error(errorMessage, e);
             return null;
         }
     }
@@ -54,10 +69,13 @@ public class S3Service {
         try {
             s3Client.deleteObject(deleteObjectRequest);
         } catch (S3Exception e) {
-            // Handle file not found, etc.
-            // You might want to throw a custom exception here.
-            System.err.println("Error deleting file from S3: " + e.getMessage());
-            throw new RuntimeException("Failed to delete file from S3: " + e.getMessage(), e);
+            String errorMessage = String.format("S3 delete failed [%s]: %s", e.getClass().getSimpleName(), e.getMessage());
+            log.error(errorMessage, e);
+            throw new RuntimeException("Failed to delete file from S3", e);
+        } catch (Exception e) {
+            String errorMessage = String.format("S3 delete error [%s]: %s", e.getClass().getSimpleName(), e.getMessage());
+            log.error(errorMessage, e);
+            throw new RuntimeException("Failed to delete file from S3", e);
         }
     }
 }

@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,18 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 	public List<AvailabilityRuleResponse> getAll() {
 		return repository.findAll().stream()
 			.map(this::toResponse)
+			.sorted(Comparator.comparing(AvailabilityRuleResponse::getRuleStartDate)
+				.thenComparing(AvailabilityRuleResponse::getAvailableStartTime))
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<AvailabilityRuleResponse> getAllActive() {
+		return repository.findByRuleStatus(AvailabilityRule.RuleStatus.ACTIVE).stream()
+			.map(this::toResponse)
+			.sorted(Comparator.comparing(AvailabilityRuleResponse::getRuleStartDate)
+				.thenComparing(AvailabilityRuleResponse::getAvailableStartTime))
 			.collect(Collectors.toList());
 	}
 

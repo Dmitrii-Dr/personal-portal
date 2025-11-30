@@ -2,10 +2,12 @@ package com.dmdr.personal.portal.controller.admin;
 
 import com.dmdr.personal.portal.booking.dto.booking.AdminBookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
+import com.dmdr.personal.portal.booking.dto.booking.AdminBookingsGroupedByStatusResponse;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
 import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.model.BookingStatus;
 import com.dmdr.personal.portal.booking.service.BookingService;
+import com.dmdr.personal.portal.controller.util.BookingStatusParser;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,13 +15,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/admin/bookings")
+@RequestMapping("/api/v1/admin/session/booking")
 public class AdminBookingController {
 
     private final BookingService bookingService;
@@ -51,6 +55,14 @@ public class AdminBookingController {
         response.setClientMessage(booking.getClientMessage());
         response.setCreatedAt(booking.getCreatedAt());
         return response;
+    }
+
+    @GetMapping("/group")
+    public ResponseEntity<AdminBookingsGroupedByStatusResponse> getBookingsByStatuses(
+            @RequestParam(value = "status", required = false) String statusParam) {
+        Set<BookingStatus> statuses = BookingStatusParser.parseStatuses(statusParam);
+        AdminBookingsGroupedByStatusResponse response = bookingService.getBookingsGroupedByStatus(statuses);
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/status")

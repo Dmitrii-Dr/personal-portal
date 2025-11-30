@@ -42,6 +42,14 @@ public interface AvailabilityRuleRepository extends JpaRepository<AvailabilityRu
 		@Param("archivedStatus") AvailabilityRule.RuleStatus archivedStatus,
 		@Param("excludeId") Long excludeId
 	);
+
+	@Query("SELECT ar FROM AvailabilityRule ar " +
+		"WHERE ar.ruleStatus = :status " +
+		"AND ar.ruleEndInstant < :now")
+	List<AvailabilityRule> findActiveRulesWithExpiredEndDate(
+		@Param("status") AvailabilityRule.RuleStatus status,
+		@Param("now") Instant now
+	);
 }
 
 

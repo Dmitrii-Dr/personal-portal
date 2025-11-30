@@ -1,6 +1,9 @@
 package com.dmdr.personal.portal.booking.service.impl;
 
+import com.dmdr.personal.portal.booking.dto.booking.AdminBookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
+import com.dmdr.personal.portal.booking.dto.booking.AdminBookingsGroupedByStatusResponse;
+import com.dmdr.personal.portal.booking.dto.booking.BookingsGroupedByStatusResponse;
 import com.dmdr.personal.portal.booking.dto.booking.CreateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
@@ -19,7 +22,10 @@ import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.UserRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -60,6 +66,45 @@ public class BookingServiceImpl implements BookingService {
 		return bookingRepository.findByClientId(userId).stream()
 			.map(BookingServiceImpl::toResponse)
 			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<BookingResponse> getBookingsByStatusesForUser(UUID userId, Set<BookingStatus> statuses) {
+		if (statuses == null || statuses.isEmpty()) {
+			return List.of();
+		}
+
+		return bookingRepository.findByClientIdAndStatusInOrderByStartTimeAsc(userId, statuses).stream()
+			.map(BookingServiceImpl::toResponse)
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public BookingsGroupedByStatusResponse getBookingsGroupedByStatusForUser(UUID userId, Set<BookingStatus> statuses) {
+		if (statuses == null || statuses.isEmpty()) {
+			return new BookingsGroupedByStatusResponse();
+		}
+
+		List<Booking> bookings = bookingRepository.findByClientIdAndStatusInOrderByStartTimeAsc(userId, statuses);
+		
+		// Group bookings by status
+		Map<BookingStatus, List<Booking>> bookingsByStatus = bookings.stream()
+			.collect(Collectors.groupingBy(Booking::getStatus));
+
+		// Convert to response DTO
+		BookingsGroupedByStatusResponse response = new BookingsGroupedByStatusResponse();
+		for (BookingStatus status : statuses) {
+			List<Booking> statusBookings = bookingsByStatus.getOrDefault(status, List.of());
+			List<BookingResponse> bookingResponses = statusBookings.stream()
+				.map(BookingServiceImpl::toResponse)
+				.sorted(Comparator.comparing(BookingResponse::getStartTimeInstant))
+				.collect(Collectors.toList());
+			response.addBookingsForStatus(status, bookingResponses);
+		}
+
+		return response;
 	}
 
 	@Override
@@ -129,6 +174,11 @@ public class BookingServiceImpl implements BookingService {
 			throw new IllegalArgumentException("Booking does not belong to user");
 		}
 
+		// Update is allowed only when Status is PENDING_APPROVAL
+		if (entity.getStatus() != BookingStatus.PENDING_APPROVAL) {
+			throw new IllegalArgumentException("Booking can only be updated when status is PENDING_APPROVAL. Current status: " + entity.getStatus());
+		}
+
 		// Validate booking updating interval
 		BookingSettings settings = getBookingSettings();
 		Instant now = Instant.now();
@@ -140,13 +190,49 @@ public class BookingServiceImpl implements BookingService {
 				"Booking can only be updated at least " + settings.getBookingUpdatingInterval() + " minutes before the start time");
 		}
 
-		entity.setStartTime(request.getStartTime());
-		// Recalculate endTime based on session duration
+		// Recalculate endTime based on session duration + buffer (for validation)
 		SessionType sessionType = entity.getSessionType();
-		Instant endTime = request.getStartTime().plusSeconds(sessionType.getDurationMinutes() * 60L);
-		entity.setEndTime(endTime);
+		Instant endTime = request.getStartTime().plusSeconds(
+			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
+		);
+
+		// Validate booking availability for the new time slot
+		availabilityService.validateBookingAvailability(request.getStartTime(), endTime);
+
+		entity.setStartTime(request.getStartTime());
+		// Set endTime (includes duration only, buffer is for validation purposes)
+		Instant endTimeForEntity = request.getStartTime().plusSeconds(sessionType.getDurationMinutes() * 60L);
+		entity.setEndTime(endTimeForEntity);
 		entity.setClientMessage(request.getClientMessage());
 		entity.setStatus(BookingStatus.PENDING_APPROVAL);
+
+		Booking saved = bookingRepository.save(entity);
+		return toResponse(saved);
+	}
+
+	@Override
+	@Transactional
+	public BookingResponse cancel(UUID userId, Long bookingId) {
+		Booking entity = bookingRepository.findById(bookingId)
+			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+
+		// Verify the booking belongs to the user
+		if (!entity.getClient().getId().equals(userId)) {
+			throw new IllegalArgumentException("Booking does not belong to user");
+		}
+
+		// Validate cancellation rules
+		BookingStatus currentStatus = entity.getStatus();
+		if (currentStatus == BookingStatus.PENDING_APPROVAL) {
+			// Allow cancellation for pending bookings
+			entity.setStatus(BookingStatus.CANCELLED);
+		} else if (currentStatus == BookingStatus.CONFIRMED) {
+			// Not allowed to cancel confirmed bookings
+			throw new IllegalArgumentException("Cannot cancel a booking with CONFIRMED status");
+		} else {
+			// For other statuses (DECLINED, CANCELLED, COMPLETED), throw error
+			throw new IllegalArgumentException("Cannot cancel a booking with status: " + currentStatus);
+		}
 
 		Booking saved = bookingRepository.save(entity);
 		return toResponse(saved);
@@ -189,6 +275,36 @@ public class BookingServiceImpl implements BookingService {
 	@Transactional(readOnly = true)
 	public List<Booking> getAllBookingsByStatus(BookingStatus status) {
 		return bookingRepository.findByStatusOrderByStartTimeAsc(status);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public AdminBookingsGroupedByStatusResponse getBookingsGroupedByStatus(Set<BookingStatus> statuses) {
+		if (statuses == null || statuses.isEmpty()) {
+			return new AdminBookingsGroupedByStatusResponse();
+		}
+
+		List<Booking> bookings = bookingRepository.findByStatusInOrderByStartTimeAsc(statuses);
+		
+		// Group bookings by status
+		Map<BookingStatus, List<Booking>> bookingsByStatus = bookings.stream()
+			.collect(Collectors.groupingBy(Booking::getStatus));
+
+		// Convert to response DTO
+		AdminBookingsGroupedByStatusResponse response = new AdminBookingsGroupedByStatusResponse();
+		for (BookingStatus status : statuses) {
+			List<Booking> statusBookings = bookingsByStatus.getOrDefault(status, List.of());
+			List<AdminBookingResponse> adminBookings = statusBookings.stream()
+				.map(booking -> {
+					BookingResponse bookingResponse = toResponse(booking);
+					return new AdminBookingResponse(bookingResponse, booking.getClient());
+				})
+				.sorted(Comparator.comparing(AdminBookingResponse::getStartTimeInstant))
+				.collect(Collectors.toList());
+			response.addBookingsForStatus(status, adminBookings);
+		}
+
+		return response;
 	}
 
 	@Override

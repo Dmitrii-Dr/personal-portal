@@ -31,6 +31,11 @@ public class AdminAvailabilityRuleController {
 		return ResponseEntity.ok(availabilityRuleService.getAll());
 	}
 
+	@GetMapping("/active")
+	public ResponseEntity<List<AvailabilityRuleResponse>> listActive() {
+		return ResponseEntity.ok(availabilityRuleService.getAllActive());
+	}
+
 	@PostMapping
 	public ResponseEntity<AvailabilityRuleResponse> create(
 		@Valid @RequestBody CreateAvailabilityRuleRequest request

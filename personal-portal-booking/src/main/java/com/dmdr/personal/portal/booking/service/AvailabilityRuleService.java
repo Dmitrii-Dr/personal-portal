@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface AvailabilityRuleService {
 	List<AvailabilityRuleResponse> getAll();
+	List<AvailabilityRuleResponse> getAllActive();
 	AvailabilityRuleResponse create(CreateAvailabilityRuleRequest request);
 	AvailabilityRuleResponse update(Long id, UpdateAvailabilityRuleRequest request);
 	void delete(Long id);
