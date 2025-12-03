@@ -36,6 +36,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		entity.setDescription(request.getDescription());
 		entity.setDurationMinutes(request.getDurationMinutes());
 		entity.setBufferMinutes(request.getBufferMinutes());
+		entity.setPrices(request.getPrices());
 		SessionType saved = repository.save(entity);
 		return toResponse(saved);
 	}
@@ -49,6 +50,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		entity.setDescription(request.getDescription());
 		entity.setDurationMinutes(request.getDurationMinutes());
 		entity.setBufferMinutes(request.getBufferMinutes());
+		entity.setPrices(request.getPrices());
 		SessionType saved = repository.save(entity);
 		return toResponse(saved);
 	}
@@ -66,6 +68,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		resp.setDescription(entity.getDescription());
 		resp.setDurationMinutes(entity.getDurationMinutes());
 		resp.setBufferMinutes(entity.getBufferMinutes());
+		resp.setPrices(entity.getPrices());
 		return resp;
 	}
 }

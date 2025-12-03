@@ -33,6 +33,7 @@ public class InfoController {
         HomePageResponse response = new HomePageResponse();
         response.setWelcomeMessage(homePage.getWelcomeMessage());
         response.setWelcomeMediaId(homePage.getWelcomeMediaId());
+        response.setWelcomeArticleIds(homePage.getWelcomeArticleIds());
         response.setAboutMessage(homePage.getAboutMessage());
         response.setAboutMediaId(homePage.getAboutMediaId());
         response.setEducationMessage(homePage.getEducationMessage());

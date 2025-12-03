@@ -24,10 +24,6 @@ public class TagServiceImpl implements TagService {
     @Override
     @Transactional
     public Tag createTag(Tag tag) {
-        // Check if tag with slug already exists
-        if (tag.getSlug() != null && tagRepository.findBySlug(tag.getSlug()).isPresent()) {
-            throw new IllegalArgumentException("Tag with slug " + tag.getSlug() + " already exists");
-        }
         // Check if tag with name already exists
         if (tag.getName() != null && tagRepository.findByName(tag.getName()).isPresent()) {
             throw new IllegalArgumentException("Tag with name " + tag.getName() + " already exists");
@@ -52,11 +48,6 @@ public class TagServiceImpl implements TagService {
     }
 
     @Override
-    public Optional<Tag> findBySlug(String slug) {
-        return tagRepository.findBySlug(slug);
-    }
-
-    @Override
     public Optional<Tag> findByName(String name) {
         return tagRepository.findByName(name);
     }
@@ -72,13 +63,6 @@ public class TagServiceImpl implements TagService {
         Tag existingTag = tagRepository.findByTagId(tagId)
                 .orElseThrow(() -> new IllegalArgumentException("Tag with id " + tagId + " not found"));
 
-        // Check if slug is being changed and if the new slug already exists
-        if (tag.getSlug() != null && !tag.getSlug().equals(existingTag.getSlug())) {
-            if (tagRepository.findBySlug(tag.getSlug()).isPresent()) {
-                throw new IllegalArgumentException("Tag with slug " + tag.getSlug() + " already exists");
-            }
-        }
-
         // Check if name is being changed and if the new name already exists
         if (tag.getName() != null && !tag.getName().equals(existingTag.getName())) {
             if (tagRepository.findByName(tag.getName()).isPresent()) {
@@ -89,9 +73,6 @@ public class TagServiceImpl implements TagService {
         // Update fields
         if (tag.getName() != null) {
             existingTag.setName(tag.getName());
-        }
-        if (tag.getSlug() != null) {
-            existingTag.setSlug(tag.getSlug());
         }
 
         return tagRepository.save(existingTag);

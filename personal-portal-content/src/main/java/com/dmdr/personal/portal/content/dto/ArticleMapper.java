@@ -34,7 +34,6 @@ public class ArticleMapper {
                         TagDto dto = new TagDto();
                         dto.setTagId(t.getTagId());
                         dto.setName(t.getName());
-                        dto.setSlug(t.getSlug());
                         return dto;
                     })
                     .collect(Collectors.toSet());

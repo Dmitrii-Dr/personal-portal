@@ -9,6 +9,7 @@ import com.dmdr.personal.portal.content.model.Tag;
 import com.dmdr.personal.portal.content.repository.ArticleRepository;
 import com.dmdr.personal.portal.content.service.ArticleService;
 import com.dmdr.personal.portal.content.service.MediaService;
+import com.dmdr.personal.portal.content.service.SlugValidationService;
 import com.dmdr.personal.portal.content.service.TagService;
 import com.dmdr.personal.portal.content.service.s3.S3Service;
 import com.dmdr.personal.portal.users.model.User;
@@ -38,28 +39,29 @@ public class ArticleServiceImpl implements ArticleService {
     private final UserService userService;
     private final S3Service s3Service;
     private final TransactionTemplate transactionTemplate;
+    private final SlugValidationService slugValidationService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public ArticleServiceImpl(ArticleRepository articleRepository, TagService tagService,
                              MediaService mediaService, UserService userService, S3Service s3Service,
-                             TransactionTemplate transactionTemplate) {
+                             TransactionTemplate transactionTemplate, 
+                             SlugValidationService slugValidationService) {
         this.articleRepository = articleRepository;
         this.tagService = tagService;
         this.mediaService = mediaService;
         this.userService = userService;
         this.s3Service = s3Service;
         this.transactionTemplate = transactionTemplate;
+        this.slugValidationService = slugValidationService;
     }
 
     @Override
     @Transactional
     public Article createArticle(Article article) {
-        // Check if article with slug already exists
-        if (article.getSlug() != null && articleRepository.findBySlug(article.getSlug()).isPresent()) {
-            throw new IllegalArgumentException("Article with slug " + article.getSlug() + " already exists");
-        }
+        // Validate slug uniqueness across all entities
+        slugValidationService.validateSlugUniqueness(article.getSlug());
         return articleRepository.save(article);
     }
 
@@ -71,6 +73,9 @@ public class ArticleServiceImpl implements ArticleService {
                 && request.getStatus() == ArticleStatus.PUBLISHED) {
             throw new IllegalArgumentException("Allowed users cannot be set for PUBLISHED articles");
         }
+
+        // Validate slug uniqueness across all entities
+        slugValidationService.validateSlugUniqueness(request.getSlug());
 
         Article article = new Article();
         article.setTitle(request.getTitle());
@@ -185,6 +190,67 @@ public class ArticleServiceImpl implements ArticleService {
         return articleRepository.findByStatusAndAllowedUsers_Id(ArticleStatus.PRIVATE, userId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Article> findPublishedArticlesByIds(List<UUID> articleIds) {
+        if (articleIds == null || articleIds.isEmpty()) {
+            return List.of();
+        }
+        
+        List<Article> articles = articleRepository.findByArticleIdIn(articleIds);
+        
+        // Validate that all requested articles were found
+        if (articles.size() != articleIds.size()) {
+            Set<UUID> foundIds = articles.stream()
+                    .map(Article::getArticleId)
+                    .collect(Collectors.toSet());
+            Set<UUID> missingIds = articleIds.stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .collect(Collectors.toSet());
+            throw new IllegalArgumentException("Articles not found: " + missingIds);
+        }
+        
+        // Validate that all articles have PUBLISHED status
+        List<Article> nonPublishedArticles = articles.stream()
+                .filter(article -> article.getStatus() != ArticleStatus.PUBLISHED)
+                .collect(Collectors.toList());
+        
+        if (!nonPublishedArticles.isEmpty()) {
+            Set<UUID> nonPublishedIds = nonPublishedArticles.stream()
+                    .map(Article::getArticleId)
+                    .collect(Collectors.toSet());
+            throw new IllegalArgumentException("Articles are not PUBLISHED: " + nonPublishedIds);
+        }
+        
+        return articles;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Article findPublishedArticleById(UUID articleId) {
+        Article article = articleRepository.findByArticleId(articleId)
+                .orElseThrow(() -> new IllegalArgumentException("Article with id " + articleId + " not found"));
+        
+        if (article.getStatus() != ArticleStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Article with id " + articleId + " is not PUBLISHED");
+        }
+        
+        return article;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Article findPublishedArticleBySlug(String slug) {
+        Article article = articleRepository.findBySlug(slug)
+                .orElseThrow(() -> new IllegalArgumentException("Article with slug '" + slug + "' not found"));
+        
+        if (article.getStatus() != ArticleStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Article with slug '" + slug + "' is not PUBLISHED");
+        }
+        
+        return article;
+    }
+
 
     @Override
     @Transactional
@@ -199,11 +265,9 @@ public class ArticleServiceImpl implements ArticleService {
             throw new IllegalArgumentException("Allowed users cannot be set for PUBLISHED articles");
         }
 
-        // Check if slug is being changed and if the new slug already exists
+        // Check if slug is being changed and validate uniqueness
         if (request.getSlug() != null && !request.getSlug().equals(existingArticle.getSlug())) {
-            if (articleRepository.findBySlug(request.getSlug()).isPresent()) {
-                throw new IllegalArgumentException("Article with slug " + request.getSlug() + " already exists");
-            }
+            slugValidationService.validateSlugUniqueness(request.getSlug(), existingArticle.getArticleId());
         }
 
         // Update fields

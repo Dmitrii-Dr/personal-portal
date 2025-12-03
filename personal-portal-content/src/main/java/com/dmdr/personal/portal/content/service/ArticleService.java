@@ -23,6 +23,12 @@ public interface ArticleService {
 
     List<Article> findPrivateArticlesForUser(UUID userId);
 
+    List<Article> findPublishedArticlesByIds(List<UUID> articleIds);
+
+    Article findPublishedArticleById(UUID articleId);
+
+    Article findPublishedArticleBySlug(String slug);
+
     Article updateArticle(UUID articleId, UpdateArticleRequest request);
 
     void deleteArticle(UUID articleId);

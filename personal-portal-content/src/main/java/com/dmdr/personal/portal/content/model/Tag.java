@@ -36,9 +36,6 @@ public class Tag {
     @Column(nullable = false, unique = true, length = 255)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 255)
-    private String slug;
-
     @ManyToMany(mappedBy = "tags", fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<Article> articles = new HashSet<>();

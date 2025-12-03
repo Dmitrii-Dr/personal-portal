@@ -31,7 +31,6 @@ public class AdminTagController {
             TagDto dto = new TagDto();
             dto.setTagId(tag.getTagId());
             dto.setName(tag.getName());
-            dto.setSlug(tag.getSlug());
             return dto;
         }).toList();
         return ResponseEntity.ok(tags);
@@ -41,13 +40,11 @@ public class AdminTagController {
     public ResponseEntity<TagDto> createTag(@Valid @RequestBody TagDto request) {
         Tag tag = new Tag();
         tag.setName(request.getName());
-        tag.setSlug(request.getSlug());
         Tag created = tagService.createTag(tag);
 
         TagDto response = new TagDto();
         response.setTagId(created.getTagId());
         response.setName(created.getName());
-        response.setSlug(created.getSlug());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -56,13 +53,11 @@ public class AdminTagController {
                                             @Valid @RequestBody TagDto request) {
         Tag tag = new Tag();
         tag.setName(request.getName());
-        tag.setSlug(request.getSlug());
         Tag updated = tagService.updateTag(tagId, tag);
 
         TagDto response = new TagDto();
         response.setTagId(updated.getTagId());
         response.setName(updated.getName());
-        response.setSlug(updated.getSlug());
         return ResponseEntity.ok(response);
     }
 }

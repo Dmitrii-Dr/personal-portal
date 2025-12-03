@@ -13,6 +13,7 @@ import java.util.UUID;
 public class UpdateHomePageRequest {
     private String welcomeMessage;
     private UUID welcomeMediaId;
+    private List<UUID> welcomeArticleIds;
     private String aboutMessage;
     private UUID aboutMediaId;
     private String educationMessage;

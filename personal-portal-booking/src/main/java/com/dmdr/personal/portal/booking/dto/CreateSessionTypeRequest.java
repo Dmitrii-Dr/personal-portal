@@ -7,6 +7,9 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+import java.util.Map;
+
 @Getter
 @Setter
 public class CreateSessionTypeRequest {
@@ -14,7 +17,6 @@ public class CreateSessionTypeRequest {
 	@Size(max = 200)
 	private String name;
 
-	@NotBlank
 	@Size(max = 2000)
 	private String description;
 
@@ -25,5 +27,7 @@ public class CreateSessionTypeRequest {
 	@NotNull
 	@Min(0)
 	private int bufferMinutes;
+
+	private Map<String, BigDecimal> prices;
 }
 

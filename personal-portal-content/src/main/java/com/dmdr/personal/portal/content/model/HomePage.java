@@ -45,6 +45,10 @@ public class HomePage {
     @Column(name = "welcome_media_id")
     private UUID welcomeMediaId;
 
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "welcome_article_ids", columnDefinition = "UUID[]")
+    private List<UUID> welcomeArticleIds = new ArrayList<>();
+
     @Column(name = "about_message", columnDefinition = "TEXT")
     private String aboutMessage;
 

@@ -11,6 +11,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
 
 @Entity
 @Table(name = "session_types")
@@ -29,7 +35,7 @@ public class SessionType {
 	@Column(nullable = false, unique = true, length = 200)
 	private String name;
 
-    @Column(nullable = false, length = 2000)
+    @Column(length = 2000)
 	private String description;
 
 	@Column(name = "duration_minutes", nullable = false)
@@ -38,6 +44,10 @@ public class SessionType {
     //Buffer time after the session
     @Column(name = "buffer_minutes", nullable = false)
     private int bufferMinutes;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "prices", columnDefinition = "jsonb")
+    private Map<String, BigDecimal> prices = new HashMap<>();
 
 }
 

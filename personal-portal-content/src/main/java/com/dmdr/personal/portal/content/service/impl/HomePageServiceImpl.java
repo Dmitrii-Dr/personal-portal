@@ -39,6 +39,9 @@ public class HomePageServiceImpl implements HomePageService {
         if (request.getWelcomeMediaId() != null) {
             homePage.setWelcomeMediaId(request.getWelcomeMediaId());
         }
+        if (request.getWelcomeArticleIds() != null) {
+            homePage.setWelcomeArticleIds(request.getWelcomeArticleIds());
+        }
         if (request.getAboutMessage() != null) {
             homePage.setAboutMessage(request.getAboutMessage());
         }

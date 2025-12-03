@@ -15,9 +15,6 @@ public class TagDto {
 
     @NotBlank(message = "Tag name is required")
     private String name;
-
-    @NotBlank(message = "Tag slug is required")
-    private String slug;
 }
 
 

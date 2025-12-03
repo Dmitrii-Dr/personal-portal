@@ -14,8 +14,6 @@ public interface TagService {
 
     List<Tag> findByIds(Set<UUID> tagIds);
 
-    Optional<Tag> findBySlug(String slug);
-
     Optional<Tag> findByName(String name);
 
     List<Tag> findAll();

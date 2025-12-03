@@ -3,6 +3,9 @@ package com.dmdr.personal.portal.booking.dto;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+import java.util.Map;
+
 @Getter
 @Setter
 public class SessionTypeResponse {
@@ -11,5 +14,6 @@ public class SessionTypeResponse {
 	private String description;
 	private int durationMinutes;
 	private int bufferMinutes;
+	private Map<String, BigDecimal> prices;
 }
 

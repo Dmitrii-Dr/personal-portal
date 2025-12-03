@@ -24,5 +24,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID> {
     @Query("SELECT COUNT(a) > 0 FROM Article a JOIN a.mediaFiles m WHERE m.mediaId = :mediaId")
     boolean existsByMediaId(@Param("mediaId") UUID mediaId);
 
+    List<Article> findByArticleIdIn(List<UUID> articleIds);
+
 }
 
