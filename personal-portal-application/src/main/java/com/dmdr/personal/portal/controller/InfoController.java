@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.controller;
 
+import com.dmdr.personal.portal.content.dto.ContactDto;
 import com.dmdr.personal.portal.content.dto.HomePageResponse;
 import com.dmdr.personal.portal.content.model.HomePage;
 import com.dmdr.personal.portal.content.service.HomePageService;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -35,6 +37,14 @@ public class InfoController {
         response.setAboutMediaId(homePage.getAboutMediaId());
         response.setEducationMessage(homePage.getEducationMessage());
         response.setEducationMediaId(homePage.getEducationMediaId());
+        response.setReviewMessage(homePage.getReviewMessage());
+        response.setReviewMediaIds(homePage.getReviewMediaIds());
+        if (homePage.getContact() != null) {
+            List<ContactDto> contactDtos = homePage.getContact().stream()
+                    .map(contact -> new ContactDto(contact.getPlatform(), contact.getValue(), contact.getDescription()))
+                    .toList();
+            response.setContact(contactDtos);
+        }
         return response;
     }
 
