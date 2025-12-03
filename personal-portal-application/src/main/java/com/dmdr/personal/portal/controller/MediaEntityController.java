@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/media")
+@RequestMapping("/api/v1/public/media")
 public class MediaEntityController {
-
+    
     private final S3Service s3Service;
     private final MediaService mediaService;
 

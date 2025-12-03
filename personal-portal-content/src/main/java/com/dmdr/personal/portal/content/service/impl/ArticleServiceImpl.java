@@ -268,8 +268,8 @@ public class ArticleServiceImpl implements ArticleService {
                 if (newMediaFiles != null) {
                     for (MediaEntity media : newMediaFiles) {
                         existingArticle.addMediaFile(media);
-                    }
-                }
+            }
+        }
             }
         }
 
@@ -285,7 +285,7 @@ public class ArticleServiceImpl implements ArticleService {
                 existingArticle.getAllowedUsers().clear();
             }
         }
-
+        
         // Save the article to update relationships
         Article savedArticle = articleRepository.save(existingArticle);
         

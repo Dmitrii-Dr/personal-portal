@@ -1,24 +1,28 @@
 package com.dmdr.personal.portal.controller;
 
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
+import com.dmdr.personal.portal.booking.dto.booking.BookingsGroupedByStatusResponse;
 import com.dmdr.personal.portal.booking.dto.booking.CreateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingRequest;
+import com.dmdr.personal.portal.booking.model.BookingStatus;
 import com.dmdr.personal.portal.booking.service.BookingService;
+import com.dmdr.personal.portal.controller.util.BookingStatusParser;
 import com.dmdr.personal.portal.service.CurrentUserService;
 import com.dmdr.personal.portal.users.model.User;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/session/booking")
@@ -33,9 +37,21 @@ public class BookingController {
 	}
 
 	@GetMapping
-	public ResponseEntity<List<BookingResponse>> getAll() {
+	public ResponseEntity<List<BookingResponse>> getBookingsByStatuses(
+			@RequestParam(value = "status", required = false) String statusParam) {
 		User currentUser = currentUserService.getCurrentUser();
-		return ResponseEntity.ok(bookingService.getAllForUser(currentUser.getId()));
+		Set<BookingStatus> statuses = BookingStatusParser.parseStatuses(statusParam);
+		List<BookingResponse> response = bookingService.getBookingsByStatusesForUser(currentUser.getId(), statuses);
+		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/group")
+	public ResponseEntity<BookingsGroupedByStatusResponse> getBookingsGroupedByStatuses(
+			@RequestParam(value = "status", required = false) String statusParam) {
+		User currentUser = currentUserService.getCurrentUser();
+		Set<BookingStatus> statuses = BookingStatusParser.parseStatuses(statusParam);
+		BookingsGroupedByStatusResponse response = bookingService.getBookingsGroupedByStatusForUser(currentUser.getId(), statuses);
+		return ResponseEntity.ok(response);
 	}
 
 	@PostMapping
@@ -58,11 +74,11 @@ public class BookingController {
 		return ResponseEntity.ok(bookingService.update(currentUser.getId(), request));
 	}
 
-	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> delete(@PathVariable Long id) {
+	@PostMapping("/{id}/cancel")
+	public ResponseEntity<BookingResponse> cancel(@PathVariable Long id) {
 		User currentUser = currentUserService.getCurrentUser();
-		bookingService.delete(currentUser.getId(), id);
-		return ResponseEntity.noContent().build();
+		BookingResponse response = bookingService.cancel(currentUser.getId(), id);
+		return ResponseEntity.ok(response);
 	}
 }
 

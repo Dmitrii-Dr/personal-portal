@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Booking Request</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 20px 0; text-align: center; background-color: #ffffff;">
+                <h1 style="margin: 0; color: #333333;">New Booking Request</h1>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 20px; background-color: #ffffff;">
+                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                    Hello,
+                </p>
+                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                    A new booking request has been submitted and requires your review.
+                </p>
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                    <p style="margin: 0 0 10px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                        <strong>Client:</strong> {{clientName}} ({{clientEmail}})
+                    </p>
+                    <p style="margin: 0 0 10px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                        <strong>Session Type:</strong> {{sessionTypeName}}
+                    </p>
+                    <p style="margin: 0 0 10px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                        <strong>Scheduled Time:</strong> {{startTime}}
+                    </p>
+                    <p id="client-message-section" style="margin: 10px 0 0 0; font-size: 16px; line-height: 1.6; color: #333333; display: none;">
+                        <strong>Client Message:</strong><br>
+                        {{clientMessage}}
+                    </p>
+                </div>
+                <p style="margin: 20px 0 0 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                    Please log in to review and respond to this booking request.
+                </p>
+                <p style="margin: 40px 0 0 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                    Best regards,<br>
+                    The Personal Portal Team
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 20px; text-align: center; background-color: #f4f4f4; font-size: 12px; color: #666666;">
+                <p style="margin: 0;">
+                    This is an automated message. Please do not reply to this email.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+

@@ -4,6 +4,7 @@ import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.model.BookingStatus;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,5 +20,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 		@Param("dayStart") Instant dayStart,
 		@Param("dayEnd") Instant dayEnd
 	);
+
+	List<Booking> findByStatusOrderByStartTimeAsc(BookingStatus status);
+
+	List<Booking> findByStatusInOrderByStartTimeAsc(Set<BookingStatus> statuses);
+
+	List<Booking> findByClientIdAndStatusInOrderByStartTimeAsc(UUID clientId, Set<BookingStatus> statuses);
 }
 
