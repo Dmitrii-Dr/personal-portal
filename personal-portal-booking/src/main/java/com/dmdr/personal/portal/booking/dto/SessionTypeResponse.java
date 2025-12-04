@@ -15,5 +15,6 @@ public class SessionTypeResponse {
 	private int durationMinutes;
 	private int bufferMinutes;
 	private Map<String, BigDecimal> prices;
+	private boolean active;
 }
 

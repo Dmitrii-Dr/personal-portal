@@ -4,9 +4,9 @@ import com.dmdr.personal.portal.booking.dto.SessionTypeResponse;
 import com.dmdr.personal.portal.booking.dto.CreateSessionTypeRequest;
 import com.dmdr.personal.portal.booking.dto.UpdateSessionTypeRequest;
 import com.dmdr.personal.portal.booking.model.SessionType;
-import com.dmdr.personal.portal.booking.repository.BookingRepository;
 import com.dmdr.personal.portal.booking.repository.SessionTypeRepository;
 import com.dmdr.personal.portal.booking.service.SessionTypeService;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -16,17 +16,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class SessionTypeServiceImpl implements SessionTypeService {
 
 	private final SessionTypeRepository repository;
-	private final BookingRepository bookingRepository;
 
-	public SessionTypeServiceImpl(SessionTypeRepository repository, BookingRepository bookingRepository) {
+	public SessionTypeServiceImpl(SessionTypeRepository repository) {
 		this.repository = repository;
-		this.bookingRepository = bookingRepository;
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<SessionTypeResponse> getAll() {
+		return repository.findByActiveTrue().stream()
+			.map(SessionTypeServiceImpl::toResponse)
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<SessionTypeResponse> getAllIncludingInactive() {
 		return repository.findAll().stream()
+			.sorted(Comparator.comparing(SessionType::isActive).reversed())
 			.map(SessionTypeServiceImpl::toResponse)
 			.collect(Collectors.toList());
 	}
@@ -54,6 +61,9 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		entity.setDurationMinutes(request.getDurationMinutes());
 		entity.setBufferMinutes(request.getBufferMinutes());
 		entity.setPrices(request.getPrices());
+		if (request.getActive() != null) {
+			entity.setActive(request.getActive());
+		}
 		SessionType saved = repository.save(entity);
 		return toResponse(saved);
 	}
@@ -61,17 +71,8 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 	@Override
 	@Transactional
 	public void delete(Long id) {
-		SessionType sessionType = repository.findById(id)
+		repository.findById(id)
 			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + id));
-
-		long bookingCount = bookingRepository.countBySessionTypeId(id);
-		if (bookingCount > 0) {
-			throw new IllegalArgumentException(
-				String.format("Cannot delete session type '%s' (ID: %d) because it is referenced by %d booking(s). " +
-					"Please delete or update all related bookings first.", sessionType.getName(), id, bookingCount)
-			);
-		}
-
 		repository.deleteById(id);
 	}
 
@@ -83,6 +84,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		resp.setDurationMinutes(entity.getDurationMinutes());
 		resp.setBufferMinutes(entity.getBufferMinutes());
 		resp.setPrices(entity.getPrices());
+		resp.setActive(entity.isActive());
 		return resp;
 	}
 }

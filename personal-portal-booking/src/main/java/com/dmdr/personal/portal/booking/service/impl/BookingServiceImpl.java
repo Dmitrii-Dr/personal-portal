@@ -20,6 +20,7 @@ import com.dmdr.personal.portal.booking.service.AvailabilityService;
 import com.dmdr.personal.portal.booking.service.BookingService;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.UserRepository;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -117,6 +118,10 @@ public class BookingServiceImpl implements BookingService {
 		SessionType sessionType = sessionTypeRepository.findById(request.getSessionTypeId())
 			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + request.getSessionTypeId()));
 
+		if (!sessionType.isActive()) {
+			throw new IllegalArgumentException("Cannot create booking with inactive session type");
+		}
+
 		// Calculate endTime: startTime + duration + buffer
 		Instant endTime = request.getStartTimeInstant().plusSeconds(
 			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
@@ -126,7 +131,18 @@ public class BookingServiceImpl implements BookingService {
 
 		Booking entity = new Booking();
 		entity.setClient(client);
-		entity.setSessionType(sessionType);
+		// Copy session type data into booking (denormalization)
+		entity.setSessionName(sessionType.getName());
+		entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
+		entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
+		// Copy session type prices - handle null case
+		Map<String, BigDecimal> prices = sessionType.getPrices();
+		if (prices != null) {
+			entity.setSessionPrices(new java.util.HashMap<>(prices));
+		} else {
+			entity.setSessionPrices(new java.util.HashMap<>());
+		}
+		entity.setSessionDescription(sessionType.getDescription());
 		entity.setStartTime(request.getStartTimeInstant());
 		// Set endTime (includes duration + buffer for validation purposes)
 		entity.setEndTime(endTime);
@@ -193,9 +209,9 @@ public class BookingServiceImpl implements BookingService {
 		}
 
 		// Recalculate endTime based on session duration + buffer (for validation)
-		SessionType sessionType = entity.getSessionType();
+		// Use denormalized session data from booking
 		Instant endTime = request.getStartTime().plusSeconds(
-			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
+			(entity.getSessionDurationMinutes() + entity.getSessionBufferMinutes()) * 60L
 		);
 
 		// Validate booking availability for the new time slot
@@ -203,7 +219,7 @@ public class BookingServiceImpl implements BookingService {
 
 		entity.setStartTime(request.getStartTime());
 		// Set endTime (includes duration only, buffer is for validation purposes)
-		Instant endTimeForEntity = request.getStartTime().plusSeconds(sessionType.getDurationMinutes() * 60L);
+		Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
 		entity.setEndTime(endTimeForEntity);
 		entity.setClientMessage(request.getClientMessage());
 		entity.setStatus(BookingStatus.PENDING_APPROVAL);
@@ -339,7 +355,7 @@ public class BookingServiceImpl implements BookingService {
 					client.getEmail(),
 					client.getFirstName(),
 					client.getLastName(),
-					booking.getSessionType().getName(),
+					booking.getSessionName(),
 					booking.getStartTime()
 				);
 			} catch (Exception e) {
@@ -351,7 +367,7 @@ public class BookingServiceImpl implements BookingService {
 					client.getEmail(),
 					client.getFirstName(),
 					client.getLastName(),
-					booking.getSessionType().getName(),
+					booking.getSessionName(),
 					booking.getStartTime()
 				);
 			} catch (Exception e) {
@@ -391,8 +407,11 @@ public class BookingServiceImpl implements BookingService {
 	private static BookingResponse toResponse(Booking entity) {
 		BookingResponse resp = new BookingResponse();
 		resp.setId(entity.getId());
-		resp.setSessionTypeId(entity.getSessionType().getId());
-		resp.setSessionTypeName(entity.getSessionType().getName());
+		resp.setSessionName(entity.getSessionName());
+		resp.setSessionDurationMinutes(entity.getSessionDurationMinutes());
+		resp.setSessionBufferMinutes(entity.getSessionBufferMinutes());
+		resp.setSessionPrices(entity.getSessionPrices());
+		resp.setSessionDescription(entity.getSessionDescription());
 		resp.setStartTimeInstant(entity.getStartTime());
 		resp.setEndTimeInstant(entity.getEndTime());
 		resp.setStatus(entity.getStatus());

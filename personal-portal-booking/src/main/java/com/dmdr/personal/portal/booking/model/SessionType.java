@@ -49,6 +49,9 @@ public class SessionType {
     @Column(name = "prices", columnDefinition = "jsonb")
     private Map<String, BigDecimal> prices = new HashMap<>();
 
+	@Column(nullable = false)
+	private boolean active = true;
+
 }
 
 

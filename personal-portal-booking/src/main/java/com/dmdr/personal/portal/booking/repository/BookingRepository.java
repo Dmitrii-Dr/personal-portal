@@ -30,7 +30,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 	List<Booking> findByStatusInOrderByStartTimeAsc(Set<BookingStatus> statuses);
 
 	List<Booking> findByClientIdAndStatusInOrderByStartTimeAsc(UUID clientId, Set<BookingStatus> statuses);
-
-	long countBySessionTypeId(Long sessionTypeId);
 }
 

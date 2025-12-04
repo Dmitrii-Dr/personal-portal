@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface SessionTypeService {
 	List<SessionTypeResponse> getAll();
+	List<SessionTypeResponse> getAllIncludingInactive();
 	SessionTypeResponse create(CreateSessionTypeRequest request);
 	SessionTypeResponse update(Long id, UpdateSessionTypeRequest request);
 	void delete(Long id);

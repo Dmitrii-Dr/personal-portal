@@ -11,13 +11,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Map;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "bookings")
@@ -37,9 +41,21 @@ public class Booking {
 	@JoinColumn(name = "client_id", nullable = false)
 	private User client;
 
-	@ManyToOne(optional = false)
-	@JoinColumn(name = "session_type_id", nullable = false)
-	private SessionType sessionType;
+	@Column(name = "session_name", nullable = false, length = 200)
+	private String sessionName;
+
+	@Column(name = "session_duration_minutes", nullable = false)
+	private Integer sessionDurationMinutes;
+
+	@Column(name = "session_buffer_minutes", nullable = false)
+	private Integer sessionBufferMinutes;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "session_prices", columnDefinition = "jsonb", nullable = false)
+	private Map<String, BigDecimal> sessionPrices = new java.util.HashMap<>();
+
+	@Column(name = "session_description", length = 2000)
+	private String sessionDescription;
 
 	@Column(name = "start_time", nullable = false)
 	private Instant startTime;

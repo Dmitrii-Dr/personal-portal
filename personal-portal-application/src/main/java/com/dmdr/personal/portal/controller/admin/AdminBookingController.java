@@ -48,8 +48,11 @@ public class AdminBookingController {
     private BookingResponse toBookingResponse(Booking booking) {
         BookingResponse response = new BookingResponse();
         response.setId(booking.getId());
-        response.setSessionTypeId(booking.getSessionType().getId());
-        response.setSessionTypeName(booking.getSessionType().getName());
+        response.setSessionName(booking.getSessionName());
+        response.setSessionDurationMinutes(booking.getSessionDurationMinutes());
+        response.setSessionBufferMinutes(booking.getSessionBufferMinutes());
+        response.setSessionPrices(booking.getSessionPrices());
+        response.setSessionDescription(booking.getSessionDescription());
         response.setStartTimeInstant(booking.getStartTime());
         response.setEndTimeInstant(booking.getEndTime());
         response.setStatus(booking.getStatus());

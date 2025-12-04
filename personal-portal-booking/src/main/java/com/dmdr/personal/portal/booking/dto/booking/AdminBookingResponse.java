@@ -17,8 +17,11 @@ public class AdminBookingResponse extends BookingResponse {
 	public AdminBookingResponse(BookingResponse bookingResponse, User client) {
 		// Copy all fields from BookingResponse
 		this.setId(bookingResponse.getId());
-		this.setSessionTypeId(bookingResponse.getSessionTypeId());
-		this.setSessionTypeName(bookingResponse.getSessionTypeName());
+		this.setSessionName(bookingResponse.getSessionName());
+		this.setSessionDurationMinutes(bookingResponse.getSessionDurationMinutes());
+		this.setSessionBufferMinutes(bookingResponse.getSessionBufferMinutes());
+		this.setSessionPrices(bookingResponse.getSessionPrices());
+		this.setSessionDescription(bookingResponse.getSessionDescription());
 		this.setStartTimeInstant(bookingResponse.getStartTimeInstant());
 		this.setEndTimeInstant(bookingResponse.getEndTimeInstant());
 		this.setStatus(bookingResponse.getStatus());
