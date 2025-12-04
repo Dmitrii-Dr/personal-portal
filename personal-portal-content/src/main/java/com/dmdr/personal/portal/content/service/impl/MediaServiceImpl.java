@@ -4,7 +4,9 @@ import com.dmdr.personal.portal.content.model.MediaEntity;
 import com.dmdr.personal.portal.content.repository.MediaRepository;
 import com.dmdr.personal.portal.content.service.MediaService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -52,12 +54,17 @@ public class MediaServiceImpl implements MediaService {
 
     @Override
     public Page<MediaEntity> findAll(Pageable pageable) {
-        // Use sorted method for default ordering by newest first
-        // If pageable has its own sort, it will override this
-        if (pageable.getSort().isSorted()) {
-            return mediaRepository.findAll(pageable);
+        // If no sort is specified, add default sort by createdAt descending (newest first)
+        Pageable pageableWithSort = pageable;
+        if (!pageable.getSort().isSorted()) {
+            Sort defaultSort = Sort.by(Sort.Direction.DESC, "createdAt");
+            pageableWithSort = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                defaultSort
+            );
         }
-        return mediaRepository.findAllByOrderByCreatedAtDesc(pageable);
+        return mediaRepository.findAll(pageableWithSort);
     }
 
     @Override

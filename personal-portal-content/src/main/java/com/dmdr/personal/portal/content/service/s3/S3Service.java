@@ -30,6 +30,7 @@ public class S3Service {
                     .bucket(bucketName)
                     .key(key)
                     .build();
+                    
             s3Client.putObject(objectRequest, RequestBody.fromBytes(fileBytes));
         } catch (S3Exception e) {
             String errorMessage = String.format("S3 upload failed [%s]: %s", e.getClass().getSimpleName(), e.getMessage());

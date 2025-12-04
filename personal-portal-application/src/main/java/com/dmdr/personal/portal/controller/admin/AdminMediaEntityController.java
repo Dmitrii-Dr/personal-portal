@@ -17,7 +17,9 @@ import java.util.UUID;
 import java.io.IOException;
 import com.dmdr.personal.portal.content.dto.MediaEntityMapper;
 import com.dmdr.personal.portal.content.dto.MediaEntityResponse;
+import com.dmdr.personal.portal.content.dto.PaginatedResponse;
 import com.dmdr.personal.portal.content.model.MediaEntity;
+import java.util.stream.Collectors;
 import com.dmdr.personal.portal.content.service.MediaService;
 import com.dmdr.personal.portal.content.service.s3.S3Service;
 import com.dmdr.personal.portal.service.CurrentUserService;
@@ -81,11 +83,29 @@ public class AdminMediaEntityController {
     }
 
     @GetMapping("/media")
-    public ResponseEntity<Page<MediaEntityResponse>> getMediaGallery(
+    public ResponseEntity<PaginatedResponse<MediaEntityResponse>> getMediaGallery(
             @PageableDefault(size = 20) Pageable pageable) {
         Page<MediaEntity> mediaPage = mediaService.findAll(pageable);
-        Page<MediaEntityResponse> responsePage = mediaPage.map(MediaEntityMapper::toResponse);
-        return ResponseEntity.ok(responsePage);
+        
+        // Map entities to DTOs manually to ensure all items are included
+        java.util.List<MediaEntityResponse> content = mediaPage.getContent().stream()
+                .map(MediaEntityMapper::toResponse)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        
+        // Create PaginatedResponse with the mapped content
+        PaginatedResponse<MediaEntityResponse> paginatedResponse = new PaginatedResponse<>(
+                content,
+                mediaPage.getNumber(),
+                mediaPage.getSize(),
+                mediaPage.getTotalElements(),
+                mediaPage.getTotalPages(),
+                mediaPage.isFirst(),
+                mediaPage.isLast(),
+                content.size()
+        );
+        
+        return ResponseEntity.ok(paginatedResponse);
     }
 
     @DeleteMapping("/media/image/{mediaId}")

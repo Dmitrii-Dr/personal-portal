@@ -19,6 +19,5 @@ public class MediaEntityResponse {
     private String altText;
     private UUID uploadedById;
     private OffsetDateTime createdAt;
-    private String imageUrl;
 }
 

@@ -17,9 +17,6 @@ public class MediaEntityMapper {
         response.setUploadedById(mediaEntity.getUploadedById());
         response.setCreatedAt(mediaEntity.getCreatedAt());
         
-        // Set imageUrl to the S3 key (fileUrl)
-        response.setImageUrl(mediaEntity.getFileUrl());
-        
         return response;
     }
 }
