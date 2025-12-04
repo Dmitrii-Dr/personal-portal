@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface MediaService {
 
@@ -15,6 +17,8 @@ public interface MediaService {
     List<MediaEntity> findByIds(Set<UUID> mediaIds);
 
     List<MediaEntity> findAll();
+
+    Page<MediaEntity> findAll(Pageable pageable);
 
     MediaEntity updateMedia(UUID mediaId, MediaEntity media);
 

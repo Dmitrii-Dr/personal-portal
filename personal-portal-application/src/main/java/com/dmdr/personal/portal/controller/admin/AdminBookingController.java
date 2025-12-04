@@ -9,6 +9,9 @@ import com.dmdr.personal.portal.booking.model.BookingStatus;
 import com.dmdr.personal.portal.booking.service.BookingService;
 import com.dmdr.personal.portal.controller.util.BookingStatusParser;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,9 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/admin/session/booking")
@@ -33,15 +34,15 @@ public class AdminBookingController {
     }
 
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<AdminBookingResponse>> getBookingsByStatus(@PathVariable("status") BookingStatus status) {
-        List<Booking> bookings = bookingService.getAllBookingsByStatus(status);
-        List<AdminBookingResponse> adminBookings = bookings.stream()
-                .map(booking -> {
-                    BookingResponse bookingResponse = toBookingResponse(booking);
-                    return new AdminBookingResponse(bookingResponse, booking.getClient());
-                })
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(adminBookings);
+    public ResponseEntity<Page<AdminBookingResponse>> getBookingsByStatus(
+            @PathVariable("status") BookingStatus status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<Booking> bookingsPage = bookingService.getAllBookingsByStatus(status, pageable);
+        Page<AdminBookingResponse> adminBookingsPage = bookingsPage.map(booking -> {
+            BookingResponse bookingResponse = toBookingResponse(booking);
+            return new AdminBookingResponse(bookingResponse, booking.getClient());
+        });
+        return ResponseEntity.ok(adminBookingsPage);
     }
 
     private BookingResponse toBookingResponse(Booking booking) {

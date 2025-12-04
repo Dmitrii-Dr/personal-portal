@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -275,6 +277,12 @@ public class BookingServiceImpl implements BookingService {
 	@Transactional(readOnly = true)
 	public List<Booking> getAllBookingsByStatus(BookingStatus status) {
 		return bookingRepository.findByStatusOrderByStartTimeAsc(status);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Page<Booking> getAllBookingsByStatus(BookingStatus status, Pageable pageable) {
+		return bookingRepository.findByStatusOrderByStartTimeAsc(status, pageable);
 	}
 
 	@Override
