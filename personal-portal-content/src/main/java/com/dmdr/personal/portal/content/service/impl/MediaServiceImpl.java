@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.content.service.impl;
 
 import com.dmdr.personal.portal.content.model.MediaEntity;
+import com.dmdr.personal.portal.content.repository.HomePageRepository;
 import com.dmdr.personal.portal.content.repository.MediaRepository;
 import com.dmdr.personal.portal.content.service.MediaService;
 import com.dmdr.personal.portal.content.service.s3.S3Service;
@@ -24,10 +25,13 @@ public class MediaServiceImpl implements MediaService {
 
     private final MediaRepository mediaRepository;
     private final S3Service s3Service;
+    private final HomePageRepository homePageRepository;
 
-    public MediaServiceImpl(MediaRepository mediaRepository, S3Service s3Service) {
+    public MediaServiceImpl(MediaRepository mediaRepository, S3Service s3Service, 
+                           HomePageRepository homePageRepository) {
         this.mediaRepository = mediaRepository;
         this.s3Service = s3Service;
+        this.homePageRepository = homePageRepository;
     }
 
     @Override
@@ -169,6 +173,12 @@ public class MediaServiceImpl implements MediaService {
                     + mediaEntity.getArticles().size() + " article(s)");
         }
         
+        // Check if media is used by HomePage
+        if (homePageRepository.existsByMediaId(mediaId)) {
+            throw new IllegalArgumentException(
+                    "Cannot delete media with id " + mediaId + " because it is being used by the home page");
+        }
+        
         mediaRepository.deleteById(mediaId);
     }
 
@@ -188,6 +198,12 @@ public class MediaServiceImpl implements MediaService {
             throw new IllegalArgumentException(
                     "Cannot delete media with id " + mediaId + " because it is being used by " 
                     + mediaEntity.getArticles().size() + " article(s)");
+        }
+        
+        // Check if media is used by HomePage
+        if (homePageRepository.existsByMediaId(mediaId)) {
+            throw new IllegalArgumentException(
+                    "Cannot delete media with id " + mediaId + " because it is being used by the home page");
         }
         
         // Step 3: Delete from S3 (after validation passes)
