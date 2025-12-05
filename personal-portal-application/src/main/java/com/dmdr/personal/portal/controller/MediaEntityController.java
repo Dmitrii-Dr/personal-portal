@@ -49,6 +49,31 @@ public class MediaEntityController {
         return new ResponseEntity<>(imageData, headers, HttpStatus.OK);
     }
 
+    @GetMapping("/image/{mediaId}/thumbnail")
+    public ResponseEntity<byte[]> getThumbnail(@PathVariable("mediaId") UUID mediaId) {
+        MediaEntity mediaEntity = mediaService.findById(mediaId)
+                .orElse(null);
+        
+        if (mediaEntity == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        // Calculate thumbnail key: "thumbnail/" + original fileUrl
+        String thumbnailKey = "thumbnail/" + mediaEntity.getFileUrl();
+        byte[] thumbnailData = s3Service.downloadFile(thumbnailKey);
+        
+        if (thumbnailData == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        // Thumbnails are always JPEG, so set content type accordingly
+        headers.setContentType(MediaType.IMAGE_JPEG);
+        headers.setContentLength(thumbnailData.length);
+        
+        return new ResponseEntity<>(thumbnailData, headers, HttpStatus.OK);
+    }
+
     private MediaType detectContentType(String fileType, String key) {
         // First try to use the fileType from MediaEntity
         if (fileType != null && !fileType.isEmpty()) {

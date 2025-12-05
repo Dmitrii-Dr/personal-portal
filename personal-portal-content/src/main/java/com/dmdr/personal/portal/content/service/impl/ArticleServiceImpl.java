@@ -7,21 +7,16 @@ import com.dmdr.personal.portal.content.model.ArticleStatus;
 import com.dmdr.personal.portal.content.model.MediaEntity;
 import com.dmdr.personal.portal.content.model.Tag;
 import com.dmdr.personal.portal.content.repository.ArticleRepository;
+import com.dmdr.personal.portal.content.repository.HomePageRepository;
 import com.dmdr.personal.portal.content.service.ArticleService;
 import com.dmdr.personal.portal.content.service.MediaService;
 import com.dmdr.personal.portal.content.service.SlugValidationService;
 import com.dmdr.personal.portal.content.service.TagService;
-import com.dmdr.personal.portal.content.service.s3.S3Service;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.CollectionUtils;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import java.util.HashSet;
 import java.util.List;
@@ -37,24 +32,19 @@ public class ArticleServiceImpl implements ArticleService {
     private final TagService tagService;
     private final MediaService mediaService;
     private final UserService userService;
-    private final S3Service s3Service;
-    private final TransactionTemplate transactionTemplate;
     private final SlugValidationService slugValidationService;
-
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final HomePageRepository homePageRepository;
 
     public ArticleServiceImpl(ArticleRepository articleRepository, TagService tagService,
-                             MediaService mediaService, UserService userService, S3Service s3Service,
-                             TransactionTemplate transactionTemplate, 
-                             SlugValidationService slugValidationService) {
+                             MediaService mediaService, UserService userService,
+                             SlugValidationService slugValidationService,
+                             HomePageRepository homePageRepository) {
         this.articleRepository = articleRepository;
         this.tagService = tagService;
         this.mediaService = mediaService;
         this.userService = userService;
-        this.s3Service = s3Service;
-        this.transactionTemplate = transactionTemplate;
         this.slugValidationService = slugValidationService;
+        this.homePageRepository = homePageRepository;
     }
 
     @Override
@@ -352,24 +342,6 @@ public class ArticleServiceImpl implements ArticleService {
         
         // Save the article to update relationships
         Article savedArticle = articleRepository.save(existingArticle);
-        
-        // Check and delete orphaned media files in a virtual thread after transaction commits
-        if (!removedMediaIds.isEmpty()) {
-            Set<UUID> finalRemovedMediaIds = removedMediaIds;
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    Thread.ofVirtual().start(() -> {
-                        List<MediaEntity> removedMedia = mediaService.findByIds(finalRemovedMediaIds);
-                        // Execute in a new transaction to avoid LazyInitializationException
-                        transactionTemplate.execute(status -> {
-                            deleteOrphanedMediaFiles(new HashSet<>(removedMedia));
-                            return null;
-                        });
-                    });
-                }
-            });
-        }
 
         return savedArticle;
     }
@@ -380,64 +352,20 @@ public class ArticleServiceImpl implements ArticleService {
         if (articleId == null) {
             throw new IllegalArgumentException("Article id cannot be null");
         }
-        Article article = articleRepository.findByArticleId(articleId)
+        // Verify article exists before deleting
+        articleRepository.findByArticleId(articleId)
                 .orElseThrow(() -> new IllegalArgumentException("Article with id " + articleId + " not found"));
         
-        // Collect media entities before deleting the article
-        Set<MediaEntity> mediaFiles = new HashSet<>(article.getMediaFiles());
+        // Check if article is used by HomePage
+        if (homePageRepository.existsByArticleId(articleId)) {
+            throw new IllegalArgumentException(
+                    "Cannot delete article with id " + articleId + " because it is being used by the home page");
+        }
         
         // Delete the article
         articleRepository.deleteById(articleId);
-        
-        // Find and delete orphaned media files
-        deleteOrphanedMediaFiles(mediaFiles);
     }
 
-    /**
-     * Deletes media files that are no longer used by any article.
-     * Also deletes the files from S3.
-     * This method should be called within a transaction context.
-     * 
-     * @param mediaFiles Set of MediaEntity objects to check and potentially delete
-     */
-    private void deleteOrphanedMediaFiles(Set<MediaEntity> mediaFiles) {
-        if (CollectionUtils.isEmpty(mediaFiles)) {
-            return;
-        }
-        
-        for (MediaEntity media : mediaFiles) {
-            if (media == null) {
-                continue;
-            }
-            
-            // Check if media is orphaned using repository query
-            // This avoids LazyInitializationException when called from virtual thread
-            if (isMediaOrphaned(media)) {
-                try {
-                    // Delete from S3 first
-                    s3Service.deleteFile(media.getFileUrl());
-                    // Then delete from database
-                    mediaService.deleteMedia(media.getMediaId());
-                } catch (Exception e) {
-                    // Log error but continue with other media files
-                    System.err.println("Error deleting orphaned media file " + media.getMediaId() + ": " + e.getMessage());
-                }
-            }
-        }
-    }
-
-    /**
-     * Checks if a media file is orphaned (not used by any article).
-     * Uses a repository query to check if any article references this media.
-     */
-    private boolean isMediaOrphaned(MediaEntity media) {
-        if (media == null) {
-            return false;
-        }
-        // Use repository query to check if media is used by any article
-        // This avoids LazyInitializationException when called from virtual thread
-        return !articleRepository.existsByMediaId(media.getMediaId());
-    }
 }
 
 

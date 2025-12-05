@@ -29,5 +29,7 @@ public class UpdateSessionTypeRequest {
 	private int bufferMinutes;
 
 	private Map<String, BigDecimal> prices;
+
+	private Boolean active;
 }
 

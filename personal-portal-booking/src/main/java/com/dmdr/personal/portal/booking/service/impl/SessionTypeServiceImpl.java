@@ -6,6 +6,7 @@ import com.dmdr.personal.portal.booking.dto.UpdateSessionTypeRequest;
 import com.dmdr.personal.portal.booking.model.SessionType;
 import com.dmdr.personal.portal.booking.repository.SessionTypeRepository;
 import com.dmdr.personal.portal.booking.service.SessionTypeService;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,16 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 	@Override
 	@Transactional(readOnly = true)
 	public List<SessionTypeResponse> getAll() {
+		return repository.findByActiveTrue().stream()
+			.map(SessionTypeServiceImpl::toResponse)
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<SessionTypeResponse> getAllIncludingInactive() {
 		return repository.findAll().stream()
+			.sorted(Comparator.comparing(SessionType::isActive).reversed())
 			.map(SessionTypeServiceImpl::toResponse)
 			.collect(Collectors.toList());
 	}
@@ -51,6 +61,9 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		entity.setDurationMinutes(request.getDurationMinutes());
 		entity.setBufferMinutes(request.getBufferMinutes());
 		entity.setPrices(request.getPrices());
+		if (request.getActive() != null) {
+			entity.setActive(request.getActive());
+		}
 		SessionType saved = repository.save(entity);
 		return toResponse(saved);
 	}
@@ -58,6 +71,8 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 	@Override
 	@Transactional
 	public void delete(Long id) {
+		repository.findById(id)
+			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + id));
 		repository.deleteById(id);
 	}
 
@@ -69,6 +84,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		resp.setDurationMinutes(entity.getDurationMinutes());
 		resp.setBufferMinutes(entity.getBufferMinutes());
 		resp.setPrices(entity.getPrices());
+		resp.setActive(entity.isActive());
 		return resp;
 	}
 }
