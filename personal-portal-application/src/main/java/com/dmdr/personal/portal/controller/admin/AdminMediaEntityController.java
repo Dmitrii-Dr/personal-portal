@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.controller.admin;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -21,43 +22,78 @@ import com.dmdr.personal.portal.content.dto.PaginatedResponse;
 import com.dmdr.personal.portal.content.model.MediaEntity;
 import java.util.stream.Collectors;
 import com.dmdr.personal.portal.content.service.MediaService;
-import com.dmdr.personal.portal.content.service.s3.S3Service;
+import com.dmdr.personal.portal.content.service.ThumbnailService;
 import com.dmdr.personal.portal.service.CurrentUserService;
+import com.dmdr.personal.portal.controller.util.ImageFileValidator;
 
 @RestController
 @RequestMapping("/api/v1/admin")
+@Slf4j
 public class AdminMediaEntityController {
-    private final S3Service s3Service;
     private final MediaService mediaService;
     private final CurrentUserService currentUserService;
+    private final ThumbnailService thumbnailService;
 
     public AdminMediaEntityController(
-            S3Service s3Service,
             MediaService mediaService,
-            CurrentUserService currentUserService) {
-        this.s3Service = s3Service;
+            CurrentUserService currentUserService,
+            ThumbnailService thumbnailService) {
         this.mediaService = mediaService;
         this.currentUserService = currentUserService;
+        this.thumbnailService = thumbnailService;
     }
 
     @PostMapping("/media/image")
     public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+        String validationError = ImageFileValidator.validateImageFile(file);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
+        
         try {
-            String key = UUID.randomUUID().toString() + "-" + file.getOriginalFilename();
-            s3Service.uploadFile(key, file.getBytes());
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "File name is required."));
+            }
             
-            // Create MediaEntity in database
+            byte[] fileBytes = file.getBytes();
+            String fileType = determineFileType(file);
+            
+            // Step 1: Generate thumbnail first (validates it works before any DB/S3 operations)
+           
+            
+            if (thumbnailService.isSvg(fileType, originalFilename)) {
+                return ResponseEntity.badRequest()
+                .body(Map.of("error", "SVG files are not supported for thumbnails."));
+            }
+                
+            byte[] thumbnailBytes = thumbnailService.generateThumbnail(fileBytes);
+            if (thumbnailBytes == null) {
+                return ResponseEntity.internalServerError()
+                        .body(Map.of("error", "Failed to generate thumbnail."));
+            }
+            
+            // Step 2: Create MediaEntity (without fileUrl - will be set in service)
             MediaEntity mediaEntity = new MediaEntity();
-            mediaEntity.setFileUrl(key);
-            mediaEntity.setFileType(determineFileType(file));
+            mediaEntity.setFileType(fileType);
             mediaEntity.setAltText(null);
             mediaEntity.setUploadedById(currentUserService.getCurrentUser().getId());
             
-            MediaEntity savedMedia = mediaService.createMedia(mediaEntity);
+            // Step 3: Save to DB and upload to S3 atomically
+            // If S3 upload fails, DB transaction will rollback automatically
+            MediaEntity savedMedia = mediaService.createMediaWithS3Upload(
+                    mediaEntity,
+                    originalFilename,
+                    fileBytes,
+                    thumbnailBytes);
 
             return ResponseEntity.ok(Map.of("mediaId", savedMedia.getMediaId().toString()));
         } catch (IOException e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to upload file."));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file."));
+        } catch (RuntimeException e) {
+            // S3 upload failure - transaction already rolled back
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to upload file: " + e.getMessage()));
         }
     }
 
@@ -111,20 +147,16 @@ public class AdminMediaEntityController {
     @DeleteMapping("/media/image/{mediaId}")
     public ResponseEntity<Map<String, String>> deleteImage(@PathVariable("mediaId") UUID mediaId) {
         try {
-            MediaEntity mediaEntity = mediaService.findById(mediaId)
-                    .orElseThrow(() -> new IllegalArgumentException("Media with id " + mediaId + " not found"));
-            
-            String key = mediaEntity.getFileUrl();
-            
-            // Delete from S3
-            s3Service.deleteFile(key);
-            
-            // Delete from database
-            mediaService.deleteMedia(mediaId);
+            // Validation and deletion (including S3 cleanup) are handled in the service layer
+            mediaService.deleteMediaWithS3Cleanup(mediaId);
             
             return ResponseEntity.ok(Map.of("message", "File deleted successfully", "mediaId", mediaId.toString()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
+            // Return 400 Bad Request if media is used by articles or not found
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Failed to delete file: " + e.getMessage()));
         }
