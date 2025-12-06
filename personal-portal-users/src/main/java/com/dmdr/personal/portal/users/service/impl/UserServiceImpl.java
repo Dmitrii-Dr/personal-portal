@@ -74,6 +74,42 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public User createUserByAdmin(String email, String firstName, String lastName, boolean sendEmailNotification) {
+        // Check if user with email already exists
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("User with email " + email + " already exists");
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
+
+        // TODO Generate a random secure password after supporting reset password flow
+        String randomPassword = "qwerty";
+        user.setPassword(passwordEncoder.encode(randomPassword));
+
+        // Assign ROLE_USER by default (create if it doesn't exist)
+        Role userRole = roleService.findByName(DEFAULT_ROLE)
+                .orElseGet(() -> roleService.createRole(new CreateRoleRequest(DEFAULT_ROLE)));
+        user.addRole(userRole);
+
+        User savedUser = userRepository.save(user);
+
+        // Send welcome email if requested
+        if (sendEmailNotification) {
+            try {
+                emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
+            } catch (Exception e) {
+                // Log error but don't fail user creation if email fails
+                System.err.println("Failed to send welcome email to " + savedUser.getEmail() + ": " + e.getMessage());
+            }
+        }
+
+        return savedUser;
+    }
+
+    @Override
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
     }

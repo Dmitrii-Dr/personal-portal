@@ -3,6 +3,8 @@ package com.dmdr.personal.portal.controller.admin;
 import com.dmdr.personal.portal.booking.dto.booking.AdminBookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.AdminBookingsGroupedByStatusResponse;
+import com.dmdr.personal.portal.booking.dto.booking.CreateBookingAdminRequest;
+import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingAdminRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
 import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.model.BookingStatus;
@@ -12,9 +14,11 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +35,24 @@ public class AdminBookingController {
 
     public AdminBookingController(BookingService bookingService) {
         this.bookingService = bookingService;
+    }
+
+    @PostMapping
+    public ResponseEntity<AdminBookingResponse> createBooking(@Valid @RequestBody CreateBookingAdminRequest request) {
+        AdminBookingResponse response = bookingService.createByAdmin(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<AdminBookingResponse> updateBooking(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateBookingAdminRequest request) {
+        // Validate that path variable id matches request body id
+        if (!id.equals(request.getId())) {
+            throw new IllegalArgumentException("Path variable id does not match request body id");
+        }
+        AdminBookingResponse response = bookingService.updateByAdmin(request);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/status/{status}")

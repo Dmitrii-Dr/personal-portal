@@ -1,9 +1,12 @@
 package com.dmdr.personal.portal.booking.service;
 
+import com.dmdr.personal.portal.booking.dto.booking.AdminBookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.AdminBookingsGroupedByStatusResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingsGroupedByStatusResponse;
+import com.dmdr.personal.portal.booking.dto.booking.CreateBookingAdminRequest;
 import com.dmdr.personal.portal.booking.dto.booking.CreateBookingRequest;
+import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingAdminRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
 import com.dmdr.personal.portal.booking.model.BookingStatus;
@@ -19,7 +22,9 @@ public interface BookingService {
 	List<BookingResponse> getBookingsByStatusesForUser(UUID userId, Set<BookingStatus> statuses);
 	BookingsGroupedByStatusResponse getBookingsGroupedByStatusForUser(UUID userId, Set<BookingStatus> statuses);
 	BookingResponse create(UUID userId, CreateBookingRequest request);
+	AdminBookingResponse createByAdmin(CreateBookingAdminRequest request);
 	BookingResponse update(UUID userId, UpdateBookingRequest request);
+	AdminBookingResponse updateByAdmin(UpdateBookingAdminRequest request);
 	BookingResponse cancel(UUID userId, Long bookingId);
 	void delete(UUID userId, Long bookingId);
 	List<BookingResponse> getAllByStatus(BookingStatus status);

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -70,6 +71,13 @@ public class BookingController {
 		if (!id.equals(request.getId())) {
 			throw new IllegalArgumentException("Path variable id does not match request body id");
 		}
+
+		// Validate that startTime is in the future
+		Instant now = Instant.now();
+		if (request.getStartTime().isBefore(now) || request.getStartTime().equals(now)) {
+			throw new IllegalArgumentException("Start time must be in the future");
+		}
+		
 		User currentUser = currentUserService.getCurrentUser();
 		return ResponseEntity.ok(bookingService.update(currentUser.getId(), request));
 	}

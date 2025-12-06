@@ -91,6 +91,28 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
 	@Override
 	@Transactional(readOnly = true)
+	public void validateBookingAvailabilityForAdmin(Instant requestedStartTime, Instant requestedEndTime) {
+		if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
+			throw new IllegalArgumentException("Requested start time must be before end time");
+		}
+
+		// Check for overlapping bookings with CONFIRMED or PENDING_APPROVAL status
+		// This method does NOT check availability rules or overrides - it assumes
+		// admins can create bookings even when no availability rules exist for that time
+		List<Booking> overlappingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
+				List.of(BookingStatus.CONFIRMED, BookingStatus.PENDING_APPROVAL),
+				requestedStartTime,
+				requestedEndTime);
+
+		if (!overlappingBookings.isEmpty()) {
+			throw new IllegalArgumentException(
+					"Requested time range overlaps with existing bookings. " +
+							"Start: " + requestedStartTime + ", End: " + requestedEndTime);
+		}
+	}
+
+	@Override
+	@Transactional(readOnly = true)
 	public List<BookingSuggestion> calculateBookingSuggestion(
 			SessionType sessionType,
 			LocalDate suggestedDate,

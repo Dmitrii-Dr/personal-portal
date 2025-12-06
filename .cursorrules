@@ -10,4 +10,10 @@
     - Map entities to response DTOs,
     - Set appropriate HTTP status codes.
 
+- Never expose database entities through API:
+  - Controllers must NEVER return JPA entities (e.g., User, Booking, Article) directly.
+  - Always use DTOs/Response objects (e.g., UserResponse, BookingResponse, AdminBookingResponse).
+  - Map entities to DTOs before returning from controller methods.
+  - This prevents exposing internal database structure, passwords, and other sensitive fields.
+
 

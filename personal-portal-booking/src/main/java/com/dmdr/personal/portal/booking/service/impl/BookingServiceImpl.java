@@ -4,7 +4,9 @@ import com.dmdr.personal.portal.booking.dto.booking.AdminBookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingResponse;
 import com.dmdr.personal.portal.booking.dto.booking.AdminBookingsGroupedByStatusResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingsGroupedByStatusResponse;
+import com.dmdr.personal.portal.booking.dto.booking.CreateBookingAdminRequest;
 import com.dmdr.personal.portal.booking.dto.booking.CreateBookingRequest;
+import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingAdminRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
 import com.dmdr.personal.portal.core.email.EmailService;
@@ -183,6 +185,56 @@ public class BookingServiceImpl implements BookingService {
 
 	@Override
 	@Transactional
+	public AdminBookingResponse createByAdmin(CreateBookingAdminRequest request) {
+
+		// Validate session type
+		SessionType sessionType = sessionTypeRepository.findById(request.getSessionTypeId())
+			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + request.getSessionTypeId()));
+
+		if (!sessionType.isActive()) {
+			throw new IllegalArgumentException("Cannot create booking with inactive session type");
+		}
+
+		// Find user by userId (required)
+		User client = userRepository.findById(request.getUserId())
+			.orElseThrow(() -> new IllegalArgumentException("User not found: " + request.getUserId()));
+
+		// Calculate endTime: startTime + duration + buffer
+		Instant endTime = request.getStartTimeInstant().plusSeconds(
+			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
+		);
+
+		// Validate availability using admin validation (no rules/overrides check)
+		availabilityService.validateBookingAvailabilityForAdmin(request.getStartTimeInstant(), endTime);
+
+		// Create booking entity
+		Booking entity = new Booking();
+		entity.setClient(client);
+		// Copy session type data into booking (denormalization)
+		entity.setSessionName(sessionType.getName());
+		entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
+		entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
+		// Copy session type prices - handle null case
+		Map<String, BigDecimal> prices = sessionType.getPrices();
+		if (prices != null) {
+			entity.setSessionPrices(new java.util.HashMap<>(prices));
+		} else {
+			entity.setSessionPrices(new java.util.HashMap<>());
+		}
+		entity.setSessionDescription(sessionType.getDescription());
+		entity.setStartTime(request.getStartTimeInstant());
+		// Set endTime (includes duration + buffer for validation purposes)
+		entity.setEndTime(endTime);
+		entity.setStatus(BookingStatus.PENDING_APPROVAL); 
+		entity.setClientMessage(request.getClientMessage());
+
+		Booking saved = bookingRepository.save(entity);
+
+		return toAdminResponse(saved);
+	}
+
+	@Override
+	@Transactional
 	public BookingResponse update(UUID userId, UpdateBookingRequest request) {
 		Booking entity = bookingRepository.findById(request.getId())
 			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + request.getId()));
@@ -197,9 +249,14 @@ public class BookingServiceImpl implements BookingService {
 			throw new IllegalArgumentException("Booking can only be updated when status is PENDING_APPROVAL. Current status: " + entity.getStatus());
 		}
 
+		// Validate that new startTime is not in the past
+		Instant now = Instant.now();
+		if (request.getStartTime().isBefore(now) || request.getStartTime().equals(now)) {
+			throw new IllegalArgumentException("Start time must be in the future");
+		}
+
 		// Validate booking updating interval
 		BookingSettings settings = getBookingSettings();
-		Instant now = Instant.now();
 		Duration timeUntilBooking = Duration.between(now, entity.getStartTime());
 		long minutesUntilBooking = timeUntilBooking.toMinutes();
 		
@@ -230,6 +287,45 @@ public class BookingServiceImpl implements BookingService {
 
 	@Override
 	@Transactional
+	public AdminBookingResponse updateByAdmin(UpdateBookingAdminRequest request) {
+		Booking entity = bookingRepository.findById(request.getId())
+			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + request.getId()));
+
+		// Validate booking status is CONFIRMED or PENDING_APPROVAL
+		BookingStatus currentStatus = entity.getStatus();
+		if (currentStatus != BookingStatus.CONFIRMED && currentStatus != BookingStatus.PENDING_APPROVAL) {
+			throw new IllegalArgumentException(
+				"Booking can only be updated when status is CONFIRMED or PENDING_APPROVAL. Current status: " + currentStatus);
+		}
+
+		// Find user by userId (required)
+		User client = userRepository.findById(request.getUserId())
+			.orElseThrow(() -> new IllegalArgumentException("User not found: " + request.getUserId()));
+
+		// Recalculate endTime based on session duration + buffer (for validation)
+		// Use denormalized session data from booking
+		Instant endTime = request.getStartTime().plusSeconds(
+			(entity.getSessionDurationMinutes() + entity.getSessionBufferMinutes()) * 60L
+		);
+
+		// Validate booking availability using admin validation (no rules/overrides check)
+		availabilityService.validateBookingAvailabilityForAdmin(request.getStartTime(), endTime);
+
+		// Update booking entity
+		entity.setClient(client);
+		entity.setStartTime(request.getStartTime());
+		// Set endTime (includes duration only, buffer is for validation purposes)
+		Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
+		entity.setEndTime(endTimeForEntity);
+		entity.setClientMessage(request.getClientMessage());
+		// Keep the existing status (CONFIRMED or PENDING_APPROVAL)
+
+		Booking saved = bookingRepository.save(entity);
+		return toAdminResponse(saved);
+	}
+
+	@Override
+	@Transactional
 	public BookingResponse cancel(UUID userId, Long bookingId) {
 		Booking entity = bookingRepository.findById(bookingId)
 			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
@@ -237,6 +333,12 @@ public class BookingServiceImpl implements BookingService {
 		// Verify the booking belongs to the user
 		if (!entity.getClient().getId().equals(userId)) {
 			throw new IllegalArgumentException("Booking does not belong to user");
+		}
+
+		// Validate that booking start time is not in the past
+		Instant now = Instant.now();
+		if (entity.getStartTime().isBefore(now) || entity.getStartTime().equals(now)) {
+			throw new IllegalArgumentException("Cannot cancel a booking that has already started or passed");
 		}
 
 		// Validate cancellation rules
@@ -418,6 +520,11 @@ public class BookingServiceImpl implements BookingService {
 		resp.setClientMessage(entity.getClientMessage());
 		resp.setCreatedAt(entity.getCreatedAt());
 		return resp;
+	}
+
+	private static AdminBookingResponse toAdminResponse(Booking entity) {
+		BookingResponse bookingResponse = toResponse(entity);
+		return new AdminBookingResponse(bookingResponse, entity.getClient());
 	}
 }
 

@@ -14,6 +14,18 @@ public interface UserService {
 
     User createUser(CreateUserRequest request);
 
+    /**
+     * Creates a user by admin. Used for admin-created users where email notification is controlled separately.
+     *
+     * @param email user email (required)
+     * @param firstName user first name (optional)
+     * @param lastName user last name (optional)
+     * @param sendEmailNotification whether to send welcome email
+     * @return the created user
+     * @throws IllegalArgumentException if user with email already exists
+     */
+    User createUserByAdmin(String email, String firstName, String lastName, boolean sendEmailNotification);
+
     Optional<User> findByEmail(String email);
 
     Optional<User> findById(UUID id);
