@@ -5,13 +5,15 @@ import com.dmdr.personal.portal.users.model.UserSettings;
 public record UserSettingsResponse(
 	Long id,
 	String timezone,
-	String language
+	String language,
+	String currency
 ) {
 	public static UserSettingsResponse from(UserSettings settings) {
 		return new UserSettingsResponse(
 			settings.getId(),
 			settings.getTimezone(),
-			settings.getLanguage()
+			settings.getLanguage(),
+			settings.getCurrency().getDisplayName()
 		);
 	}
 }

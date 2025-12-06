@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.users.dto;
 
+import com.dmdr.personal.portal.core.model.Currency;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -18,4 +19,6 @@ public class UpdateUserSettingsRequest {
 	@NotBlank(message = "Language is required")
 	@Size(max = 10, message = "Language must be at most 10 characters")
 	private String language;
+
+	private Currency currency;
 }

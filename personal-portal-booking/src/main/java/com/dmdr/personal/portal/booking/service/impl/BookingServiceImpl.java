@@ -10,6 +10,7 @@ import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingAdminRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingRequest;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingStatusRequest;
 import com.dmdr.personal.portal.core.email.EmailService;
+import com.dmdr.personal.portal.core.model.Currency;
 import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.model.BookingSettings;
@@ -22,6 +23,7 @@ import com.dmdr.personal.portal.booking.service.AvailabilityService;
 import com.dmdr.personal.portal.booking.service.BookingService;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.UserRepository;
+import com.dmdr.personal.portal.users.service.UserSettingsService;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -46,6 +48,7 @@ public class BookingServiceImpl implements BookingService {
 	private final AvailabilityService availabilityService;
 	private final EmailService emailService;
 	private final com.dmdr.personal.portal.users.service.UserService userService;
+	private final UserSettingsService userSettingsService;
 
 	public BookingServiceImpl(
 		BookingRepository bookingRepository,
@@ -54,7 +57,8 @@ public class BookingServiceImpl implements BookingService {
 		BookingSettingsRepository bookingSettingsRepository,
 		AvailabilityService availabilityService,
 		EmailService emailService,
-		com.dmdr.personal.portal.users.service.UserService userService
+		com.dmdr.personal.portal.users.service.UserService userService,
+		UserSettingsService userSettingsService
 	) {
 		this.bookingRepository = bookingRepository;
 		this.sessionTypeRepository = sessionTypeRepository;
@@ -63,6 +67,7 @@ public class BookingServiceImpl implements BookingService {
 		this.availabilityService = availabilityService;
 		this.emailService = emailService;
 		this.userService = userService;
+		this.userSettingsService = userSettingsService;
 	}
 
 	@Override
@@ -137,13 +142,10 @@ public class BookingServiceImpl implements BookingService {
 		entity.setSessionName(sessionType.getName());
 		entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
 		entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
-		// Copy session type prices - handle null case
-		Map<String, BigDecimal> prices = sessionType.getPrices();
-		if (prices != null) {
-			entity.setSessionPrices(new java.util.HashMap<>(prices));
-		} else {
-			entity.setSessionPrices(new java.util.HashMap<>());
-		}
+		// Copy session type prices filtered by user's currency
+		Currency userCurrency = userSettingsService.getUserCurrency(userId);
+		Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
+		entity.setSessionPrices(filteredPrices);
 		entity.setSessionDescription(sessionType.getDescription());
 		entity.setStartTime(request.getStartTimeInstant());
 		// Set endTime (includes duration + buffer for validation purposes)
@@ -214,13 +216,10 @@ public class BookingServiceImpl implements BookingService {
 		entity.setSessionName(sessionType.getName());
 		entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
 		entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
-		// Copy session type prices - handle null case
-		Map<String, BigDecimal> prices = sessionType.getPrices();
-		if (prices != null) {
-			entity.setSessionPrices(new java.util.HashMap<>(prices));
-		} else {
-			entity.setSessionPrices(new java.util.HashMap<>());
-		}
+		// Copy session type prices filtered by user's currency
+		Currency userCurrency = userSettingsService.getUserCurrency(request.getUserId());
+		Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
+		entity.setSessionPrices(filteredPrices);
 		entity.setSessionDescription(sessionType.getDescription());
 		entity.setStartTime(request.getStartTimeInstant());
 		// Set endTime (includes duration + buffer for validation purposes)
@@ -504,6 +503,17 @@ public class BookingServiceImpl implements BookingService {
 
 	private BookingSettings getBookingSettings() {
 		return bookingSettingsRepository.mustFindTopByOrderByIdAsc();
+	}
+
+	private static Map<String, BigDecimal> filterPricesByCurrency(Map<String, BigDecimal> prices, Currency currency) {
+		Map<String, BigDecimal> filtered = new java.util.HashMap<>();
+		if (prices != null) {
+			String currencyKey = currency.getDisplayName();
+			BigDecimal price = prices.get(currencyKey);
+			filtered.put(currencyKey, price);
+		}
+		
+		return filtered;
 	}
 
 	private static BookingResponse toResponse(Booking entity) {

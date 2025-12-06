@@ -1,7 +1,10 @@
 package com.dmdr.personal.portal.users.model;
 
+import com.dmdr.personal.portal.core.model.Currency;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -37,4 +40,8 @@ public class UserSettings {
 
     @Column(nullable = false, length = 10)
     private String language;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private Currency currency = Currency.RUB;
 }
