@@ -71,5 +71,20 @@ public class JwtService {
             return false;
         }
     }
+
+    /**
+     * Extracts the issued at (iat) date from the JWT token.
+     *
+     * @param token the JWT token
+     * @return the date when the token was issued, or null if not present
+     */
+    public Date getIssuedAt(String token) {
+        try {
+            Claims claims = extractClaims(token);
+            return claims.getIssuedAt();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }
 

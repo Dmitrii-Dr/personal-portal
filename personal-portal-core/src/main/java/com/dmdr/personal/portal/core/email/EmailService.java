@@ -52,5 +52,15 @@ public interface EmailService {
      */
     void sendBookingRequestAdminEmail(String toEmail, String clientName, String clientEmail,
                                      String sessionTypeName, Instant startTime, String clientMessage);
+
+    /**
+     * Sends a password reset email to the user.
+     *
+     * @param toEmail the recipient's email address
+     * @param firstName the recipient's first name
+     * @param lastName the recipient's last name
+     * @param resetLink the password reset link with token
+     */
+    void sendPasswordResetEmail(String toEmail, String firstName, String lastName, String resetLink);
 }
 

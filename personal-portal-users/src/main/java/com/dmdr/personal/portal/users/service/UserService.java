@@ -36,5 +36,13 @@ public interface UserService {
     boolean validatePassword(String rawPassword, String encodedPassword);
 
     User updateProfile(UUID userId, UpdateUserProfileRequest request);
+
+    /**
+     * Updates the password for a user and sets the last password reset date.
+     *
+     * @param userId the ID of the user
+     * @param newPassword the new password (will be encoded)
+     */
+    void updatePassword(UUID userId, String newPassword);
 }
 

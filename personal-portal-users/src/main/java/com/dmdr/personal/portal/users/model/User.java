@@ -55,6 +55,9 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "last_password_reset_date")
+    private OffsetDateTime lastPasswordResetDate;
+
     // This section defines a many-to-many relationship between the User and Role entities.
     // The @ManyToMany annotation specifies that each user can have multiple roles and each role can belong to multiple users.
     // The fetch type is set to EAGER, meaning roles are loaded immediately with the user.

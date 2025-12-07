@@ -3,9 +3,12 @@ package com.dmdr.personal.portal.controller;
 import com.dmdr.personal.portal.service.JwtService;
 import com.dmdr.personal.portal.users.dto.AuthResponse;
 import com.dmdr.personal.portal.users.dto.CreateUserRequest;
+import com.dmdr.personal.portal.users.dto.ForgotPasswordRequest;
 import com.dmdr.personal.portal.users.dto.LoginRequest;
+import com.dmdr.personal.portal.users.dto.ResetPasswordRequest;
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
+import com.dmdr.personal.portal.users.service.PasswordResetService;
 import com.dmdr.personal.portal.users.service.UserService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -26,10 +29,12 @@ public class AuthController {
 
     private final UserService userService;
     private final JwtService jwtService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(UserService userService, JwtService jwtService) {
+    public AuthController(UserService userService, JwtService jwtService, PasswordResetService passwordResetService) {
         this.userService = userService;
         this.jwtService = jwtService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/login")
@@ -79,6 +84,18 @@ public class AuthController {
 
         log.info("User registered successfully: {}", user.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestPasswordReset(request.getEmail());
+        return ResponseEntity.ok("If an account with that email exists, a password reset link has been sent.");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.getToken(), request.getEmail(), request.getNewPassword());
+        return ResponseEntity.ok("Password successfully reset.");
     }
 }
 

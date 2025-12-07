@@ -217,5 +217,44 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to load booking request admin email template: " + e);
         }
     }
+
+    @Override
+    public void sendPasswordResetEmail(String toEmail, String firstName, String lastName, String resetLink) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+
+            helper.setFrom(fromEmail, fromName);
+            helper.setTo(toEmail);
+            helper.setSubject("Reset Your Password");
+
+            String htmlContent = buildPasswordResetEmailHtml(firstName, lastName, resetLink);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+        } catch (MessagingException | IOException e) {
+            System.err.println("Failed to send password reset email to " + toEmail + ": " + e.getMessage());
+        }
+    }
+
+    private String buildPasswordResetEmailHtml(String firstName, String lastName, String resetLink) {
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/email/password-reset.html");
+            String template = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+            
+            String displayName = firstName + " " + lastName;
+            
+            return template
+                    .replace("{{displayName}}", displayName)
+                    .replace("{{resetLink}}", resetLink);
+        } catch (IOException e) {
+            System.err.println("Failed to load password reset email template: " + e.getMessage());
+            throw new RuntimeException("Failed to load password reset email template: " + e);
+        }
+    }
 }
 
