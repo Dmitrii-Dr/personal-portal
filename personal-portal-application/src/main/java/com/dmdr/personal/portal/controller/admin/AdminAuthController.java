@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.controller.admin;
 
+import com.dmdr.personal.portal.core.email.EmailService;
 import com.dmdr.personal.portal.users.dto.CreateUserAdminRequest;
 import com.dmdr.personal.portal.users.dto.CreateUserSettingsRequest;
 import com.dmdr.personal.portal.users.dto.UserResponse;
@@ -19,10 +20,12 @@ public class AdminAuthController {
 
 	private final UserService userService;
 	private final UserSettingsService userSettingsService;
+	private final EmailService emailService;
 
-	public AdminAuthController(UserService userService, UserSettingsService userSettingsService) {
+	public AdminAuthController(UserService userService, UserSettingsService userSettingsService, EmailService emailService) {
 		this.userService = userService;
 		this.userSettingsService = userSettingsService;
+		this.emailService = emailService;
 	}
 
 	@PostMapping("/user/registry")
@@ -31,15 +34,25 @@ public class AdminAuthController {
 		com.dmdr.personal.portal.users.model.User user = userService.createUserByAdmin(
 			request.getEmail(),
 			request.getFirstName(),
-			request.getLastName(),
-			request.isSendEmailNotification()
+			request.getLastName()
 		);
 
-		// Create user settings with timezone (use default language "en")
+		// Create user settings with timezone and emailNotificationEnabled
 		CreateUserSettingsRequest settingsRequest = new CreateUserSettingsRequest();
 		settingsRequest.setTimezone(request.getTimezone());
 		settingsRequest.setLanguage("en");  // Default language
+		settingsRequest.setEmailNotificationEnabled(request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
 		userSettingsService.createSettings(user.getId(), settingsRequest);
+
+		// Send welcome email if email notifications are enabled (check UserSettings)
+		if (userSettingsService.isEmailNotificationEnabled(user.getId())) {
+			try {
+				emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName(), user.getLastName());
+			} catch (Exception e) {
+				// Log error but don't fail user creation if email fails
+				System.err.println("Failed to send welcome email to " + user.getEmail() + ": " + e.getMessage());
+			}
+		}
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
 	}

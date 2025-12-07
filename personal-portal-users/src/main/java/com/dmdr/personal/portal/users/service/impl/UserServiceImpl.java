@@ -32,13 +32,16 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final RoleService roleService;
     private final EmailService emailService;
+    private final com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService;
 
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, 
-                          RoleService roleService, EmailService emailService) {
+                          RoleService roleService, EmailService emailService,
+                          com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
         this.emailService = emailService;
+        this.userSettingsService = userSettingsService;
     }
 
     @Override
@@ -62,19 +65,21 @@ public class UserServiceImpl implements UserService {
 
         User savedUser = userRepository.save(user);
 
-        // Send welcome email asynchronously (non-blocking)
-        try {
-            emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
-        } catch (Exception e) {
-            // Log error but don't fail user creation if email fails
-            System.err.println("Failed to send welcome email to " + savedUser.getEmail() + ": " + e.getMessage());
+        // Send welcome email asynchronously (non-blocking) only if email notifications are enabled
+        if (userSettingsService.isEmailNotificationEnabled(savedUser.getId())) {
+            try {
+                emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
+            } catch (Exception e) {
+                // Log error but don't fail user creation if email fails
+                System.err.println("Failed to send welcome email to " + savedUser.getEmail() + ": " + e.getMessage());
+            }
         }
 
         return savedUser;
     }
 
     @Override
-    public User createUserByAdmin(String email, String firstName, String lastName, boolean sendEmailNotification) {
+    public User createUserByAdmin(String email, String firstName, String lastName) {
         // Check if user with email already exists
         if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("User with email " + email + " already exists");
@@ -95,16 +100,6 @@ public class UserServiceImpl implements UserService {
         user.addRole(userRole);
 
         User savedUser = userRepository.save(user);
-
-        // Send welcome email if requested
-        if (sendEmailNotification) {
-            try {
-                emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
-            } catch (Exception e) {
-                // Log error but don't fail user creation if email fails
-                System.err.println("Failed to send welcome email to " + savedUser.getEmail() + ": " + e.getMessage());
-            }
-        }
 
         return savedUser;
     }

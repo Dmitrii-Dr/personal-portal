@@ -26,6 +26,6 @@ public class CreateUserAdminRequest {
 	@Size(max = 50, message = "Timezone must be at most 50 characters")
 	private String timezone;
 
-	private boolean sendEmailNotification = false;
+	private Boolean emailNotificationEnabled;
 }
 

@@ -11,4 +11,5 @@ public interface UserSettingsService {
 	UserSettingsResponse createSettings(UUID userId, CreateUserSettingsRequest request);
 	UserSettingsResponse updateSettings(UUID userId, UpdateUserSettingsRequest request);
 	Currency getUserCurrency(UUID userId);
+	boolean isEmailNotificationEnabled(UUID userId);
 }

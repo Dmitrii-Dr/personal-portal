@@ -44,4 +44,7 @@ public class UserSettings {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private Currency currency = Currency.RUB;
+
+    @Column(name = "email_notification_enabled", nullable = false)
+    private boolean emailNotificationEnabled = true;
 }

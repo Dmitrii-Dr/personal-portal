@@ -21,4 +21,6 @@ public class CreateUserSettingsRequest {
 	private String language;
 
 	private Currency currency;
+
+	private Boolean emailNotificationEnabled;
 }

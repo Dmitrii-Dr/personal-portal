@@ -50,10 +50,11 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 			settings.setUser(user);
 			// Set default values - these should ideally come from a configuration
 			// For now, using reasonable defaults
-			settings.setTimezone("UTC");
-			settings.setLanguage("en");
-			settings.setCurrency(Currency.RUB);
-			settings = userSettingsRepository.save(settings);
+		settings.setTimezone("UTC");
+		settings.setLanguage("en");
+		settings.setCurrency(Currency.RUB);
+		settings.setEmailNotificationEnabled(true);
+		settings = userSettingsRepository.save(settings);
 		}
 		return settings.getCurrency();
 	}
@@ -74,6 +75,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 		settings.setTimezone(request.getTimezone());
 		settings.setLanguage(request.getLanguage());
 		settings.setCurrency(request.getCurrency() != null ? request.getCurrency() : Currency.RUB);
+		settings.setEmailNotificationEnabled(request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
 
 		UserSettings saved = userSettingsRepository.save(settings);
 		return UserSettingsResponse.from(saved);
@@ -90,8 +92,22 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 		if (request.getCurrency() != null) {
 			settings.setCurrency(request.getCurrency());
 		}
+		if (request.getEmailNotificationEnabled() != null) {
+			settings.setEmailNotificationEnabled(request.getEmailNotificationEnabled());
+		}
 
 		UserSettings saved = userSettingsRepository.save(settings);
 		return UserSettingsResponse.from(saved);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public boolean isEmailNotificationEnabled(UUID userId) {
+		UserSettings settings = userSettingsRepository.findByUserId(userId).orElse(null);
+		if (settings == null) {
+			// Default to true if settings don't exist
+			return true;
+		}
+		return settings.isEmailNotificationEnabled();
 	}
 }

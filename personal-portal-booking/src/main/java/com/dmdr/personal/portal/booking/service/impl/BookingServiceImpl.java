@@ -448,9 +448,11 @@ public class BookingServiceImpl implements BookingService {
 		booking.setStatus(newStatus);
 		Booking saved = bookingRepository.save(booking);
 
-		// Send email notifications for CONFIRMED or DECLINED
+		// Send email notifications for CONFIRMED or DECLINED only if email notifications are enabled
 		User client = booking.getClient();
-		if (newStatus == BookingStatus.CONFIRMED) {
+		boolean emailEnabled = userSettingsService.isEmailNotificationEnabled(client.getId());
+		
+		if (newStatus == BookingStatus.CONFIRMED && emailEnabled) {
 			try {
 				emailService.sendBookingConfirmationEmail(
 					client.getEmail(),
@@ -462,7 +464,7 @@ public class BookingServiceImpl implements BookingService {
 			} catch (Exception e) {
 				System.err.println("Failed to send booking confirmation email: " + e.getMessage());
 			}
-		} else if (newStatus == BookingStatus.DECLINED) {
+		} else if (newStatus == BookingStatus.DECLINED && emailEnabled) {
 			try {
 				emailService.sendBookingRejectionEmail(
 					client.getEmail(),
