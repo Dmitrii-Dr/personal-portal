@@ -47,5 +47,13 @@ public interface AvailabilityOverrideRepository extends JpaRepository<Availabili
 		@Param("endInstant") Instant endInstant,
 		@Param("status") OverrideStatus status
 	);
+
+	@Query("SELECT ao FROM AvailabilityOverride ao " +
+		"WHERE ao.overrideStatus = :status " +
+		"AND ao.overrideEndInstant < :now")
+	List<AvailabilityOverride> findActiveOverridesWithExpiredEndDate(
+		@Param("status") OverrideStatus status,
+		@Param("now") Instant now
+	);
 }
 

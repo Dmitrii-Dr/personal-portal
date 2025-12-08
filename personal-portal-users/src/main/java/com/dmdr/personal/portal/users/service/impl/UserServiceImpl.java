@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -91,11 +92,9 @@ public class UserServiceImpl implements UserService {
         user.setFirstName(firstName);
         user.setLastName(lastName);
 
-        // TODO Generate a random secure password after supporting reset password flow
-        String randomPassword = "qwerty";
+        String randomPassword = generateRandomPassword();
         user.setPassword(passwordEncoder.encode(randomPassword));
 
-        // Assign ROLE_USER by default (create if it doesn't exist)
         Role userRole = roleService.findByName(DEFAULT_ROLE)
                 .orElseGet(() -> roleService.createRole(new CreateRoleRequest(DEFAULT_ROLE)));
         user.addRole(userRole);
@@ -179,6 +178,43 @@ public class UserServiceImpl implements UserService {
         user.setLastPasswordResetDate(OffsetDateTime.now());
 
         userRepository.save(user);
+    }
+
+    /**
+     * Generates a secure random password with a mix of uppercase, lowercase, digits, and special characters.
+     * @return A random password of 16 characters
+     */
+    private String generateRandomPassword() {
+        String uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowercase = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "!@#$%^&*";
+        String allChars = uppercase + lowercase + digits + special;
+
+        SecureRandom random = new SecureRandom();
+        StringBuilder password = new StringBuilder(16);
+
+        // Ensure at least one character from each category
+        password.append(uppercase.charAt(random.nextInt(uppercase.length())));
+        password.append(lowercase.charAt(random.nextInt(lowercase.length())));
+        password.append(digits.charAt(random.nextInt(digits.length())));
+        password.append(special.charAt(random.nextInt(special.length())));
+
+        // Fill the rest randomly
+        for (int i = 4; i < 16; i++) {
+            password.append(allChars.charAt(random.nextInt(allChars.length())));
+        }
+
+        // Shuffle the password to avoid predictable pattern
+        char[] passwordArray = password.toString().toCharArray();
+        for (int i = passwordArray.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            char temp = passwordArray[i];
+            passwordArray[i] = passwordArray[j];
+            passwordArray[j] = temp;
+        }
+
+        return new String(passwordArray);
     }
 }
 

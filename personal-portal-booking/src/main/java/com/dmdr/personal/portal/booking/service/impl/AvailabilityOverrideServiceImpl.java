@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 	@Transactional(readOnly = true)
 	public List<AvailabilityOverrideResponse> getAll() {
 		return repository.findAll().stream()
+			.sorted(Comparator.comparing(AvailabilityOverride::getOverideStartInstant))
 			.map(AvailabilityOverrideServiceImpl::toResponse)
 			.collect(Collectors.toList());
 	}

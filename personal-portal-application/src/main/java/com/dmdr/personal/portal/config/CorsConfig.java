@@ -33,15 +33,24 @@ public class CorsConfig {
             configuration.setAllowedOriginPatterns(Arrays.asList("*"));
             configuration.setAllowCredentials(false);
         } else {
-            // Specific origins mode: parse comma-separated list and enable credentials
-            // This allows JWT tokens in Authorization headers
+            // Parse comma-separated list
             List<String> originList = Stream.of(trimmedOrigins.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
                     .collect(Collectors.toList());
             
-            configuration.setAllowedOrigins(originList);
-            configuration.setAllowCredentials(true);
+            // Check if any origin contains a pattern (wildcard)
+            boolean hasPattern = originList.stream().anyMatch(origin -> origin.contains("*"));
+            
+            if (hasPattern) {
+                // Pattern mode: use setAllowedOriginPatterns for IP ranges like 192.168.*.*
+                configuration.setAllowedOriginPatterns(originList);
+                configuration.setAllowCredentials(true);
+            } else {
+                // Specific origins mode: use setAllowedOrigins for exact matches
+                configuration.setAllowedOrigins(originList);
+                configuration.setAllowCredentials(true);
+            }
         }
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

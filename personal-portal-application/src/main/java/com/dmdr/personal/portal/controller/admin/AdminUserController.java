@@ -2,17 +2,20 @@ package com.dmdr.personal.portal.controller.admin;
 
 import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.content.dto.UserResponse;
-import com.dmdr.personal.portal.users.model.Role;
+import com.dmdr.personal.portal.users.dto.UserSettingsResponse;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
+import com.dmdr.personal.portal.users.service.UserSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -21,6 +24,7 @@ import java.util.stream.Collectors;
 public class AdminUserController {
 
     private final UserService userService;
+    private final UserSettingsService userSettingsService;
 
     @GetMapping
     public ResponseEntity<List<UserResponse>> getUsers() {
@@ -41,6 +45,12 @@ public class AdminUserController {
                     return dto;
                 })
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{userId}/settings")
+    public ResponseEntity<UserSettingsResponse> getUserSettings(@PathVariable UUID userId) {
+        UserSettingsResponse response = userSettingsService.getSettings(userId);
         return ResponseEntity.ok(response);
     }
 }
