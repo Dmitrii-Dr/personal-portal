@@ -20,9 +20,9 @@ public class WebSecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AlreadyAuthenticatedFilter alreadyAuthenticatedFilter;
 
-    public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource, 
-                             JwtAuthenticationFilter jwtAuthenticationFilter,
-                             AlreadyAuthenticatedFilter alreadyAuthenticatedFilter) {
+    public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AlreadyAuthenticatedFilter alreadyAuthenticatedFilter) {
         this.corsConfigurationSource = corsConfigurationSource;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.alreadyAuthenticatedFilter = alreadyAuthenticatedFilter;
@@ -36,21 +36,19 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(alreadyAuthenticatedFilter, JwtAuthenticationFilter.class)
-            .authorizeHttpRequests(authz -> authz
-                // Public endpoints - health check and authentication endpoints
-                .requestMatchers("/api/v*/public/**", "/api/v1/health", "/api/v1/auth/**").permitAll()
-                // Admin endpoints - require ADMIN role
-                .requestMatchers("/api/v*/admin/**").hasAuthority(SystemRole.ADMIN.getAuthority())
-                // All other endpoints require authentication (USER token)
-                .anyRequest().authenticated()
-            );
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(alreadyAuthenticatedFilter, JwtAuthenticationFilter.class)
+                .authorizeHttpRequests(authz -> authz
+                        // Public endpoints - health check and authentication endpoints
+                        .requestMatchers("/api/v*/public/**", "/api/v1/health", "/api/v1/auth/**").permitAll()
+                        // Admin endpoints - require ADMIN role
+                        .requestMatchers("/api/v*/admin/**").hasAuthority(SystemRole.ADMIN.getAuthority())
+                        // All other endpoints require authentication (USER token)
+                        .anyRequest().authenticated());
 
         return http.build();
     }
 }
-

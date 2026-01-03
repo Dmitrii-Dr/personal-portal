@@ -35,9 +35,6 @@ public class AdminUserInitializer implements CommandLineRunner {
     @Value("${admin.user.settings.timezone:UTC}")
     private String adminTimezone;
 
-    @Value("${admin.user.settings.language:en}")
-    private String adminLanguage;
-
     public AdminUserInitializer(
             UserRepository userRepository,
             RoleService roleService,
@@ -75,7 +72,7 @@ public class AdminUserInitializer implements CommandLineRunner {
 
         User savedAdmin = userRepository.save(adminUser);
         log.info("Admin user created successfully with email: {}", adminEmail);
-        
+
         // Create default settings for the admin user
         createDefaultSettings(savedAdmin.getId());
     }
@@ -83,14 +80,12 @@ public class AdminUserInitializer implements CommandLineRunner {
     private void createDefaultSettings(java.util.UUID userId) {
         CreateUserSettingsRequest settingsRequest = new CreateUserSettingsRequest();
         settingsRequest.setTimezone(adminTimezone);
-        settingsRequest.setLanguage(adminLanguage);
-        
+
         try {
             userSettingsService.createSettings(userId, settingsRequest);
-            log.info("Default settings created for admin user with timezone: {}, language: {}", adminTimezone, adminLanguage);
+            log.info("Default settings created for admin user with timezone: {}", adminTimezone);
         } catch (IllegalArgumentException e) {
             log.warn("Failed to create default settings for admin user: {}", e.getMessage());
         }
     }
 }
-

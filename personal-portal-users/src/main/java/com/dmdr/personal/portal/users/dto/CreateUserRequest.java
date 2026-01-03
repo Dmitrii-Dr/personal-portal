@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.util.Map;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -21,10 +23,17 @@ public class CreateUserRequest {
     @NotBlank(message = "Password is required")
     private String password;
 
+    @NotBlank(message = "First name is required")
     @Size(max = 100, message = "First name must be at most 100 characters")
     private String firstName;
 
+    @NotBlank(message = "Last name is required")
     @Size(max = 100, message = "Last name must be at most 100 characters")
     private String lastName;
-}
 
+    @NotBlank(message = "Phone number is required")
+    @Size(max = 20, message = "Phone number must be at most 20 characters")
+    private String phoneNumber;
+
+    private Map<UUID, Boolean> signedAgreements;
+}

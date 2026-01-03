@@ -15,6 +15,7 @@ public class UpdateUserProfileRequest {
 
     @Size(max = 100, message = "Last name must be at most 100 characters")
     private String lastName;
+
+    @Size(max = 20, message = "Phone number must be at most 20 characters")
+    private String phoneNumber;
 }
-
-
