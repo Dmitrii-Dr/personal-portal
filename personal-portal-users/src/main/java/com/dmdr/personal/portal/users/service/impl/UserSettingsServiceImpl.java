@@ -20,9 +20,8 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 	private final UserRepository userRepository;
 
 	public UserSettingsServiceImpl(
-		UserSettingsRepository userSettingsRepository,
-		UserRepository userRepository
-	) {
+			UserSettingsRepository userSettingsRepository,
+			UserRepository userRepository) {
 		this.userSettingsRepository = userSettingsRepository;
 		this.userRepository = userRepository;
 	}
@@ -31,31 +30,14 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 	@Transactional(readOnly = true)
 	public UserSettingsResponse getSettings(UUID userId) {
 		UserSettings settings = userSettingsRepository.findByUserId(userId)
-			.orElseThrow(() -> new IllegalArgumentException("User settings not found for user: " + userId));
+				.orElseThrow(() -> new IllegalArgumentException("User settings not found for user: " + userId));
 		return UserSettingsResponse.from(settings);
 	}
 
-	/**
-	 * Get user's currency preference. Creates UserSettings with default currency if they don't exist.
-	 */
 	@Override
 	@Transactional
 	public Currency getUserCurrency(UUID userId) {
 		UserSettings settings = userSettingsRepository.findByUserId(userId).orElse(null);
-		if (settings == null) {
-			// Create UserSettings with default currency on first access
-			User user = userRepository.findById(userId)
-				.orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
-			settings = new UserSettings();
-			settings.setUser(user);
-			// Set default values - these should ideally come from a configuration
-			// For now, using reasonable defaults
-		settings.setTimezone("UTC");
-		settings.setLanguage("en");
-		settings.setCurrency(Currency.RUB);
-		settings.setEmailNotificationEnabled(true);
-		settings = userSettingsRepository.save(settings);
-		}
 		return settings.getCurrency();
 	}
 
@@ -63,7 +45,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 	@Transactional
 	public UserSettingsResponse createSettings(UUID userId, CreateUserSettingsRequest request) {
 		User user = userRepository.findById(userId)
-			.orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+				.orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
 		// Check if settings already exist
 		if (userSettingsRepository.findByUserId(userId).isPresent()) {
@@ -73,9 +55,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 		UserSettings settings = new UserSettings();
 		settings.setUser(user);
 		settings.setTimezone(request.getTimezone());
-		settings.setLanguage(request.getLanguage());
+		settings.setLanguage("ru"); // Default language for future i18n support
 		settings.setCurrency(request.getCurrency() != null ? request.getCurrency() : Currency.RUB);
-		settings.setEmailNotificationEnabled(request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
+		settings.setEmailNotificationEnabled(
+				request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
 
 		UserSettings saved = userSettingsRepository.save(settings);
 		return UserSettingsResponse.from(saved);
@@ -85,10 +68,9 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 	@Transactional
 	public UserSettingsResponse updateSettings(UUID userId, UpdateUserSettingsRequest request) {
 		UserSettings settings = userSettingsRepository.findByUserId(userId)
-			.orElseThrow(() -> new IllegalArgumentException("User settings not found for user: " + userId));
+				.orElseThrow(() -> new IllegalArgumentException("User settings not found for user: " + userId));
 
 		settings.setTimezone(request.getTimezone());
-		settings.setLanguage(request.getLanguage());
 		if (request.getCurrency() != null) {
 			settings.setCurrency(request.getCurrency());
 		}

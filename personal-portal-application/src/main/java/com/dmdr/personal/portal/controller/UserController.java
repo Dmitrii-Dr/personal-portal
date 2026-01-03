@@ -17,7 +17,7 @@ import com.dmdr.personal.portal.users.service.UserService;
 @RestController
 @RequestMapping("/api/v1/user")
 public class UserController {
-    
+
     private final CurrentUserService currentUserService;
     private final UserService userService;
 
@@ -34,6 +34,7 @@ public class UserController {
         dto.setEmail(user.getEmail());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
+        dto.setPhoneNumber(user.getPhoneNumber());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
         return ResponseEntity.ok(dto);
@@ -49,6 +50,7 @@ public class UserController {
         dto.setEmail(updated.getEmail());
         dto.setFirstName(updated.getFirstName());
         dto.setLastName(updated.getLastName());
+        dto.setPhoneNumber(updated.getPhoneNumber());
         dto.setCreatedAt(updated.getCreatedAt());
         dto.setUpdatedAt(updated.getUpdatedAt());
         return ResponseEntity.ok(dto);

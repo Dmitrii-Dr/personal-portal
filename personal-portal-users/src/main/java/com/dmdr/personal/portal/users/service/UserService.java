@@ -17,13 +17,14 @@ public interface UserService {
     /**
      * Creates a user by admin. Used for admin-created users.
      *
-     * @param email user email (required)
-     * @param firstName user first name (optional)
-     * @param lastName user last name (optional)
+     * @param email       user email (required)
+     * @param firstName   user first name (optional)
+     * @param lastName    user last name (optional)
+     * @param phoneNumber user phone number (optional)
      * @return the created user
      * @throws IllegalArgumentException if user with email already exists
      */
-    User createUserByAdmin(String email, String firstName, String lastName);
+    User createUserByAdmin(String email, String firstName, String lastName, String phoneNumber);
 
     Optional<User> findByEmail(String email);
 
@@ -40,9 +41,8 @@ public interface UserService {
     /**
      * Updates the password for a user and sets the last password reset date.
      *
-     * @param userId the ID of the user
+     * @param userId      the ID of the user
      * @param newPassword the new password (will be encoded)
      */
     void updatePassword(UUID userId, String newPassword);
 }
-

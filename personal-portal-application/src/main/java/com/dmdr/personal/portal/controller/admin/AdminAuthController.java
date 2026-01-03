@@ -22,7 +22,8 @@ public class AdminAuthController {
 	private final UserSettingsService userSettingsService;
 	private final EmailService emailService;
 
-	public AdminAuthController(UserService userService, UserSettingsService userSettingsService, EmailService emailService) {
+	public AdminAuthController(UserService userService, UserSettingsService userSettingsService,
+			EmailService emailService) {
 		this.userService = userService;
 		this.userSettingsService = userSettingsService;
 		this.emailService = emailService;
@@ -32,16 +33,16 @@ public class AdminAuthController {
 	public ResponseEntity<UserResponse> registry(@Valid @RequestBody CreateUserAdminRequest request) {
 		// Create user by admin
 		com.dmdr.personal.portal.users.model.User user = userService.createUserByAdmin(
-			request.getEmail(),
-			request.getFirstName(),
-			request.getLastName()
-		);
+				request.getEmail(),
+				request.getFirstName(),
+				request.getLastName(),
+				request.getPhoneNumber());
 
 		// Create user settings with timezone and emailNotificationEnabled
 		CreateUserSettingsRequest settingsRequest = new CreateUserSettingsRequest();
 		settingsRequest.setTimezone(request.getTimezone());
-		settingsRequest.setLanguage("en");  // Default language
-		settingsRequest.setEmailNotificationEnabled(request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
+		settingsRequest.setEmailNotificationEnabled(
+				request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
 		userSettingsService.createSettings(user.getId(), settingsRequest);
 
 		// Send welcome email if email notifications are enabled (check UserSettings)
@@ -57,4 +58,3 @@ public class AdminAuthController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
 	}
 }
-

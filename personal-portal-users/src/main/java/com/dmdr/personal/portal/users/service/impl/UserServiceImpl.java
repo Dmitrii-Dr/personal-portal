@@ -10,6 +10,7 @@ import com.dmdr.personal.portal.users.dto.CreateUserRequest;
 import com.dmdr.personal.portal.users.repository.UserRepository;
 import com.dmdr.personal.portal.users.service.RoleService;
 import com.dmdr.personal.portal.users.service.UserService;
+import com.dmdr.personal.portal.users.model.SignedAgreement;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,15 +36,18 @@ public class UserServiceImpl implements UserService {
     private final RoleService roleService;
     private final EmailService emailService;
     private final com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService;
+    private final com.dmdr.personal.portal.users.service.AgreementVerifier agreementVerifier;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, 
-                          RoleService roleService, EmailService emailService,
-                          com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
+            RoleService roleService, EmailService emailService,
+            com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService,
+            com.dmdr.personal.portal.users.service.AgreementVerifier agreementVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
         this.emailService = emailService;
         this.userSettingsService = userSettingsService;
+        this.agreementVerifier = agreementVerifier;
     }
 
     @Override
@@ -53,12 +57,18 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("User with email " + request.getEmail() + " already exists");
         }
 
+        // Verify agreements and get snapshots
+        List<SignedAgreement> signedAgreements = agreementVerifier
+                .verifyAndGetSnapshots(request.getSignedAgreements());
+
         User user = new User();
         user.setEmail(request.getEmail());
         // Hash the password before saving
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
+        user.setPhoneNumber(request.getPhoneNumber());
+        user.addSignedAgreements(signedAgreements);
 
         // Assign ROLE_USER by default (create if it doesn't exist)
         Role userRole = roleService.findByName(DEFAULT_ROLE)
@@ -67,7 +77,8 @@ public class UserServiceImpl implements UserService {
 
         User savedUser = userRepository.save(user);
 
-        // Send welcome email asynchronously (non-blocking) only if email notifications are enabled
+        // Send welcome email asynchronously (non-blocking) only if email notifications
+        // are enabled
         if (userSettingsService.isEmailNotificationEnabled(savedUser.getId())) {
             try {
                 emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
@@ -81,7 +92,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User createUserByAdmin(String email, String firstName, String lastName) {
+    public User createUserByAdmin(String email, String firstName, String lastName, String phoneNumber) {
         // Check if user with email already exists
         if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("User with email " + email + " already exists");
@@ -91,6 +102,7 @@ public class UserServiceImpl implements UserService {
         user.setEmail(email);
         user.setFirstName(firstName);
         user.setLastName(lastName);
+        user.setPhoneNumber(phoneNumber);
 
         String randomPassword = generateRandomPassword();
         user.setPassword(passwordEncoder.encode(randomPassword));
@@ -156,6 +168,9 @@ public class UserServiceImpl implements UserService {
         if (request.getLastName() != null) {
             user.setLastName(request.getLastName());
         }
+        if (request.getPhoneNumber() != null) {
+            user.setPhoneNumber(request.getPhoneNumber());
+        }
 
         return userRepository.save(user);
     }
@@ -181,7 +196,9 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Generates a secure random password with a mix of uppercase, lowercase, digits, and special characters.
+     * Generates a secure random password with a mix of uppercase, lowercase,
+     * digits, and special characters.
+     * 
      * @return A random password of 16 characters
      */
     private String generateRandomPassword() {
@@ -217,4 +234,3 @@ public class UserServiceImpl implements UserService {
         return new String(passwordArray);
     }
 }
-
