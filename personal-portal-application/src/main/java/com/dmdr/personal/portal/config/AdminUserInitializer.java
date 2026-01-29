@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.config;
 
 import com.dmdr.personal.portal.core.security.SystemRole;
+
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.dto.CreateRoleRequest;
@@ -32,8 +33,8 @@ public class AdminUserInitializer implements CommandLineRunner {
     @Value("${admin.user.password}")
     private String adminPassword;
 
-    @Value("${admin.user.settings.timezone:UTC}")
-    private String adminTimezone;
+    @Value("${admin.user.settings.timezone:16}")
+    private Integer adminTimezoneId;
 
     public AdminUserInitializer(
             UserRepository userRepository,
@@ -79,11 +80,11 @@ public class AdminUserInitializer implements CommandLineRunner {
 
     private void createDefaultSettings(java.util.UUID userId) {
         CreateUserSettingsRequest settingsRequest = new CreateUserSettingsRequest();
-        settingsRequest.setTimezone(adminTimezone);
+        settingsRequest.setTimezoneId(adminTimezoneId);
 
         try {
             userSettingsService.createSettings(userId, settingsRequest);
-            log.info("Default settings created for admin user with timezone: {}", adminTimezone);
+            log.info("Default settings created for admin user with timezone: {}", adminTimezoneId);
         } catch (IllegalArgumentException e) {
             log.warn("Failed to create default settings for admin user: {}", e.getMessage());
         }

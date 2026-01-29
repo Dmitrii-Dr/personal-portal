@@ -25,7 +25,7 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class UserSettings {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
@@ -35,8 +35,8 @@ public class UserSettings {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(nullable = false, length = 50)
-    private String timezone;
+    @Column(name = "timezone_id")
+    private Integer timezoneId;
 
     @Column(nullable = false, length = 10)
     private String language;

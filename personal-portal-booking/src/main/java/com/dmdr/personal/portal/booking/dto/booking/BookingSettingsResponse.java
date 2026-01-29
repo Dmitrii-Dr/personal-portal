@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.booking.dto.booking;
 
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,8 +12,6 @@ public class BookingSettingsResponse {
 	private int bookingFirstSlotInterval;
 	private int bookingCancelationInterval;
 	private int bookingUpdatingInterval;
-	private String defaultTimezone;
+	private TimezoneEntry defaultTimezone;
 	private String defaultUtcOffset;
 }
-
-

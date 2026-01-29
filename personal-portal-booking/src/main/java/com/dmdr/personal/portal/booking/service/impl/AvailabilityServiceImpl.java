@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.booking.service.impl;
 
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestion;
 import com.dmdr.personal.portal.booking.model.AvailabilityOverride;
 import com.dmdr.personal.portal.booking.model.AvailabilityRule;
@@ -54,7 +55,7 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
 		// Get booking settings first to get the default timezone
 		BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
-		ZoneId zoneId = ZoneId.of(settings.getDefaultTimezone());
+		ZoneId zoneId = ZoneId.of(TimezoneEntry.getById(settings.getDefaultTimezoneId()).getGmtOffset());
 		LocalDate requestedDate = requestedStartTime.atZone(zoneId).toLocalDate();
 
 		// Calculate day boundaries in the default timezone
@@ -98,7 +99,8 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
 		// Check for overlapping bookings with CONFIRMED or PENDING_APPROVAL status
 		// This method does NOT check availability rules or overrides - it assumes
-		// admins can create bookings even when no availability rules exist for that time
+		// admins can create bookings even when no availability rules exist for that
+		// time
 		List<Booking> overlappingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
 				List.of(BookingStatus.CONFIRMED, BookingStatus.PENDING_APPROVAL),
 				requestedStartTime,
@@ -116,7 +118,8 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 	public List<BookingSuggestion> calculateBookingSuggestion(
 			SessionType sessionType,
 			LocalDate suggestedDate,
-			String timezone) {
+			Integer timezoneId) {
+		String timezone = TimezoneEntry.getById(timezoneId).getGmtOffset();
 		ZoneId zoneId = ZoneId.of(timezone);
 
 		// Convert suggestedDate to start and end of day in the given timezone
@@ -171,7 +174,7 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 						return false;
 					}
 
-					ZoneId ruleZoneId = ZoneId.of(rule.getTimezone());
+					ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
 
 					// Convert booking startTime to LocalTime and DayOfWeek using rule's timezone
 					LocalTime bookingStartTime = startTime.atZone(ruleZoneId).toLocalTime();
@@ -215,17 +218,24 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 						return false;
 					}
 
-					// Get day of week in the rule's timezone
-					// Convert suggestedDate to the rule's timezone to get the correct day of week
-					ZoneId ruleZoneId = ZoneId.of(rule.getTimezone());
-					LocalDate dateInRuleTimezone = suggestedDate.atStartOfDay().atZone(zoneId)
-							.withZoneSameInstant(ruleZoneId)
-							.toLocalDate();
-					DayOfWeek dayOfWeekInRuleTimezone = dateInRuleTimezone.getDayOfWeek();
+					// Get day(s) of week in the rule's timezone
+					// The client's day (dayStartInstant to dayEndInstant) may span two different
+					// calendar days in the rule's timezone, so we need to check both
+					ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
 
-					// Check if the day of week matches
-					int dayValue = dayOfWeekInRuleTimezone.getValue();
-					return containsDay(rule.getDaysOfWeekAsInt(), dayValue);
+					// Get the date at the start of the client's day in the rule's timezone
+					LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
+					// Get the date at the end of the client's day in the rule's timezone
+					LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
+
+					// Check if at least one of these days matches the rule's days of week
+					DayOfWeek startDayOfWeek = startDateInRuleTimezone.getDayOfWeek();
+					DayOfWeek endDayOfWeek = endDateInRuleTimezone.getDayOfWeek();
+
+					boolean startDayMatches = containsDay(rule.getDaysOfWeekAsInt(), startDayOfWeek.getValue());
+					boolean endDayMatches = containsDay(rule.getDaysOfWeekAsInt(), endDayOfWeek.getValue());
+
+					return startDayMatches || endDayMatches;
 				})
 				.collect(Collectors.toList());
 	}
@@ -260,30 +270,42 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 		// separately
 		List<TimeRange> ruleRanges = new ArrayList<>();
 		for (AvailabilityRule rule : matchingRules) {
-			ZoneId ruleZoneId = ZoneId.of(rule.getTimezone());
+			ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
 			LocalTime availableStart = rule.getAvailableStartTime();
 			LocalTime availableEnd = rule.getAvailableEndTime();
 
-			// Convert suggestedDate to the rule's timezone to get the correct date
-			LocalDate dateInRuleTimezone = suggestedDate.atStartOfDay().atZone(zoneId)
-					.withZoneSameInstant(ruleZoneId)
-					.toLocalDate();
+			// The client's day range may span multiple calendar days in the rule's timezone
+			// We need to check each calendar day in the rule's timezone that overlaps with
+			// the client's day
+			LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
+			LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
 
-			// Get working hours for that date in the rule's timezone
-			LocalDateTime ruleStartDateTime = dateInRuleTimezone.atTime(availableStart);
-			LocalDateTime ruleEndDateTime = dateInRuleTimezone.atTime(availableEnd);
-			Instant ruleWorkingStartInstant = ruleStartDateTime.atZone(ruleZoneId).toInstant();
-			Instant ruleWorkingEndInstant = ruleEndDateTime.atZone(ruleZoneId).toInstant();
+			// Iterate through each calendar day in the rule's timezone that the client's
+			// day spans
+			LocalDate currentDate = startDateInRuleTimezone;
+			while (!currentDate.isAfter(endDateInRuleTimezone)) {
+				// Check if this day of the week is in the rule's working days
+				DayOfWeek dayOfWeek = currentDate.getDayOfWeek();
+				if (containsDay(rule.getDaysOfWeekAsInt(), dayOfWeek.getValue())) {
+					// Calculate working hours for this specific day in the rule's timezone
+					LocalDateTime ruleStartDateTime = currentDate.atTime(availableStart);
+					LocalDateTime ruleEndDateTime = currentDate.atTime(availableEnd);
+					Instant ruleWorkingStartInstant = ruleStartDateTime.atZone(ruleZoneId).toInstant();
+					Instant ruleWorkingEndInstant = ruleEndDateTime.atZone(ruleZoneId).toInstant();
 
-			// Find overlap between client's day and rule's working hours (filter past
-			// intervals)
-			TimeRange ruleOverlap = findFutureOverlap(
-					new TimeRange(dayStartInstant, dayEndInstant),
-					new TimeRange(ruleWorkingStartInstant, ruleWorkingEndInstant),
-					minimumStartTime);
+					// Find overlap between client's day and this day's working hours
+					TimeRange ruleOverlap = findFutureOverlap(
+							new TimeRange(dayStartInstant, dayEndInstant),
+							new TimeRange(ruleWorkingStartInstant, ruleWorkingEndInstant),
+							minimumStartTime);
 
-			if (ruleOverlap != null) {
-				ruleRanges.add(ruleOverlap);
+					if (ruleOverlap != null) {
+						ruleRanges.add(ruleOverlap);
+					}
+				}
+
+				// Move to the next day in the rule's timezone
+				currentDate = currentDate.plusDays(1);
 			}
 		}
 

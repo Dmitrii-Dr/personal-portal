@@ -1,5 +1,7 @@
 package com.dmdr.personal.portal.booking.service.impl;
 
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
+
 import com.dmdr.personal.portal.booking.dto.availability.rule.AvailabilityRuleResponse;
 import com.dmdr.personal.portal.booking.dto.availability.rule.CreateAvailabilityRuleRequest;
 import com.dmdr.personal.portal.booking.dto.availability.rule.UpdateAvailabilityRuleRequest;
@@ -26,10 +28,9 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 	private final BookingSettingsService bookingSettingsService;
 
 	public AvailabilityRuleServiceImpl(
-		AvailabilityRuleRepository repository,
-		AvailabilityRuleValidator validator,
-		BookingSettingsService bookingSettingsService
-	) {
+			AvailabilityRuleRepository repository,
+			AvailabilityRuleValidator validator,
+			BookingSettingsService bookingSettingsService) {
 		this.repository = repository;
 		this.validator = validator;
 		this.bookingSettingsService = bookingSettingsService;
@@ -39,44 +40,41 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 	@Transactional(readOnly = true)
 	public List<AvailabilityRuleResponse> getAll() {
 		return repository.findAll().stream()
-			.map(this::toResponse)
-			.sorted(Comparator.comparing(AvailabilityRuleResponse::getRuleStartDate)
-				.thenComparing(AvailabilityRuleResponse::getAvailableStartTime))
-			.collect(Collectors.toList());
+				.map(this::toResponse)
+				.sorted(Comparator.comparing(AvailabilityRuleResponse::getRuleStartDate)
+						.thenComparing(AvailabilityRuleResponse::getAvailableStartTime))
+				.collect(Collectors.toList());
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<AvailabilityRuleResponse> getAllActive() {
 		return repository.findByRuleStatus(AvailabilityRule.RuleStatus.ACTIVE).stream()
-			.map(this::toResponse)
-			.sorted(Comparator.comparing(AvailabilityRuleResponse::getRuleStartDate)
-				.thenComparing(AvailabilityRuleResponse::getAvailableStartTime))
-			.collect(Collectors.toList());
+				.map(this::toResponse)
+				.sorted(Comparator.comparing(AvailabilityRuleResponse::getRuleStartDate)
+						.thenComparing(AvailabilityRuleResponse::getAvailableStartTime))
+				.collect(Collectors.toList());
 	}
 
 	@Override
 	@Transactional
 	public AvailabilityRuleResponse create(CreateAvailabilityRuleRequest request) {
-		// Get timezone from BookingSettings
-		String timezone = bookingSettingsService.getDefaultTimezone();
-		ZoneId zoneId = ZoneId.of(timezone);
+		TimezoneEntry timezone = bookingSettingsService.getDefaultTimezone();
+		ZoneId zoneId = ZoneId.of(timezone.getGmtOffset());
 
-		// Transform LocalDate to LocalDateTime using availableStartTime and availableEndTime, then to Instant
-		Instant ruleStartInstant = request.getRuleStartDate().atTime(request.getAvailableStartTime()).atZone(zoneId).toInstant();
-		Instant ruleEndInstant = request.getRuleEndDate().atTime(request.getAvailableEndTime()).atZone(zoneId).toInstant();
+		// Transform LocalDate to LocalDateTime using availableStartTime and
+		// availableEndTime, then to Instant
+		Instant ruleStartInstant = request.getRuleStartDate().atTime(request.getAvailableStartTime()).atZone(zoneId)
+				.toInstant();
+		Instant ruleEndInstant = request.getRuleEndDate().atTime(request.getAvailableEndTime()).atZone(zoneId)
+				.toInstant();
 
 		// Validate rule start time (both ruleStartInstant and Instant.now() are in UTC)
 		validator.validateRuleStartTime(ruleStartInstant, timezone);
 
-		// Validate overlapping rules (timezone and active rule overlap) - single DB query
+		// Validate overlapping rules (timezone and active rule overlap) - single DB
+		// query
 		validator.validateOverlappingRules(request, ruleStartInstant, ruleEndInstant, timezone);
-
-		TimezoneOffsetPair resolved = resolveTimezoneAndOffset(
-			timezone,
-			ruleStartInstant,
-			ruleEndInstant
-		);
 
 		AvailabilityRule entity = new AvailabilityRule();
 		entity.setDaysOfWeekAsInt(convertToIntArray(request.getDaysOfWeek()));
@@ -84,8 +82,9 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 		entity.setAvailableEndTime(request.getAvailableEndTime());
 		entity.setRuleStartInstant(ruleStartInstant);
 		entity.setRuleEndInstant(ruleEndInstant);
-		entity.setTimezone(resolved.timezone);
-		entity.setUtcOffset(resolved.utcOffset);
+
+		entity.setTimezoneId(timezone.getId());
+		entity.setUtcOffset(timezone.getGmtOffset());
 		entity.setRuleStatus(request.getRuleStatus());
 		AvailabilityRule saved = repository.save(entity);
 		return toResponse(saved);
@@ -95,24 +94,26 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 	@Transactional
 	public AvailabilityRuleResponse update(Long id, UpdateAvailabilityRuleRequest request) {
 		AvailabilityRule entity = repository.findById(id)
-			.orElseThrow(() -> new IllegalArgumentException("AvailabilityRule not found: " + id));
+				.orElseThrow(() -> new IllegalArgumentException("AvailabilityRule not found: " + id));
 
 		// Use existing timezone from entity (timezone cannot be updated)
-		String timezone = entity.getTimezone();
-		ZoneId zoneId = ZoneId.of(timezone);
+		Integer timezoneId = entity.getTimezoneId();
+		TimezoneEntry timezoneEntry = TimezoneEntry.getById(timezoneId);
 
-		// Transform LocalDate to LocalDateTime using availableStartTime and availableEndTime, then to Instant
-		Instant ruleStartInstant = request.getRuleStartDate().atTime(request.getAvailableStartTime()).atZone(zoneId).toInstant();
-		Instant ruleEndInstant = request.getRuleEndDate().atTime(request.getAvailableEndTime()).atZone(zoneId).toInstant();
+		ZoneId zoneId = ZoneId.of(timezoneEntry.getGmtOffset());
+		// Transform LocalDate to LocalDateTime using availableStartTime and
+		// availableEndTime, then to Instant
+		Instant ruleStartInstant = request.getRuleStartDate().atTime(request.getAvailableStartTime()).atZone(zoneId)
+				.toInstant();
+		Instant ruleEndInstant = request.getRuleEndDate().atTime(request.getAvailableEndTime()).atZone(zoneId)
+				.toInstant();
 
-		// Validate overlapping rules (timezone and active rule overlap) - single DB query
-		validator.validateOverlappingRules(request, ruleStartInstant, ruleEndInstant, timezone, id);
-
-		TimezoneOffsetPair resolved = resolveTimezoneAndOffset(
-			timezone,
-			ruleStartInstant,
-			ruleEndInstant
-		);
+		// Validate overlapping rules (timezone and active rule overlap) - single DB
+		// query
+		// Validate overlapping rules (timezone and active rule overlap) - single DB
+		// query
+		validator.validateOverlappingRules(request, ruleStartInstant, ruleEndInstant, timezoneId, id);
+		validator.validateOffsetConsistency(timezoneEntry, ruleStartInstant, ruleEndInstant);
 
 		entity.setDaysOfWeekAsInt(convertToIntArray(request.getDaysOfWeek()));
 		entity.setAvailableStartTime(request.getAvailableStartTime());
@@ -120,7 +121,7 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 		entity.setRuleStartInstant(ruleStartInstant);
 		entity.setRuleEndInstant(ruleEndInstant);
 		// timezone is preserved from existing entity (cannot be updated)
-		entity.setUtcOffset(resolved.utcOffset);
+		entity.setUtcOffset(timezoneEntry.getGmtOffset());
 		entity.setRuleStatus(request.getRuleStatus());
 		AvailabilityRule saved = repository.save(entity);
 		return toResponse(saved);
@@ -138,14 +139,16 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 		resp.setDaysOfWeek(convertToDayOfWeekList(entity.getDaysOfWeekAsInt()));
 		resp.setAvailableStartTime(entity.getAvailableStartTime());
 		resp.setAvailableEndTime(entity.getAvailableEndTime());
-		
+
 		// Convert Instant back to LocalDate using entity's timezone
-		String timezone = entity.getTimezone();
-		ZoneId zoneId = ZoneId.of(timezone);
+
+		Integer timezoneId = entity.getTimezoneId();
+
+		ZoneId zoneId = ZoneId.of(TimezoneEntry.getById(timezoneId).getGmtOffset());
 		resp.setRuleStartDate(entity.getRuleStartInstant().atZone(zoneId).toLocalDate());
 		resp.setRuleEndDate(entity.getRuleEndInstant().atZone(zoneId).toLocalDate());
-		
-		resp.setTimezone(entity.getTimezone());
+
+		resp.setTimezone(TimezoneEntry.getById(entity.getTimezoneId()));
 		resp.setUtcOffset(entity.getUtcOffset());
 		resp.setRuleStatus(entity.getRuleStatus());
 		return resp;
@@ -154,52 +157,14 @@ public class AvailabilityRuleServiceImpl implements AvailabilityRuleService {
 	// Convert List<DayOfWeek> to int[] where Monday = 1, Sunday = 7
 	private static int[] convertToIntArray(List<DayOfWeek> daysOfWeek) {
 		return daysOfWeek.stream()
-			.mapToInt(DayOfWeek::getValue)
-			.toArray();
+				.mapToInt(DayOfWeek::getValue)
+				.toArray();
 	}
 
 	// Convert int[] to List<DayOfWeek> where Monday = 1, Sunday = 7
 	private static List<DayOfWeek> convertToDayOfWeekList(int[] daysOfWeekAsInt) {
 		return Arrays.stream(daysOfWeekAsInt)
-			.mapToObj(DayOfWeek::of)
-			.collect(Collectors.toList());
-	}
-
-	private TimezoneOffsetPair resolveTimezoneAndOffset(
-		String timezone,
-		Instant ruleStartInstant,
-		Instant ruleEndInstant
-	) {
-		// Calculate offset from timezone at ruleStartInstant
-		String calculatedOffset = calculateOffsetFromTimezone(timezone, ruleStartInstant);
-
-		// Validate that offset is consistent across rule period
-		validator.validateOffsetConsistency(timezone, ruleStartInstant, ruleEndInstant);
-
-		return new TimezoneOffsetPair(timezone, calculatedOffset);
-	}
-
-
-	private static String calculateOffsetFromTimezone(String timezone, Instant referenceTime) {
-		try {
-			ZoneId zoneId = ZoneId.of(timezone);
-			ZoneOffset offset = zoneId.getRules().getOffset(referenceTime);
-			return offset.toString();
-		} catch (Exception e) {
-			throw new IllegalArgumentException("Invalid timezone: " + e.getMessage(), e);
-		}
-	}
-
-
-	private static class TimezoneOffsetPair {
-		final String timezone;
-		final String utcOffset;
-
-		TimezoneOffsetPair(String timezone, String utcOffset) {
-			this.timezone = timezone;
-			this.utcOffset = utcOffset;
-		}
+				.mapToObj(DayOfWeek::of)
+				.collect(Collectors.toList());
 	}
 }
-
-

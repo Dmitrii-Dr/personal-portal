@@ -43,7 +43,9 @@ public class WebSecurityConfig {
                 .addFilterAfter(alreadyAuthenticatedFilter, JwtAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints - health check and authentication endpoints
-                        .requestMatchers("/api/v*/public/**", "/api/v1/health", "/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v*/public/**", "/api/v1/health", "/api/v1/auth/**",
+                                "/actuator/health/**")
+                        .permitAll()
                         // Admin endpoints - require ADMIN role
                         .requestMatchers("/api/v*/admin/**").hasAuthority(SystemRole.ADMIN.getAuthority())
                         // All other endpoints require authentication (USER token)

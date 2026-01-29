@@ -40,7 +40,7 @@ public class AdminAuthController {
 
 		// Create user settings with timezone and emailNotificationEnabled
 		CreateUserSettingsRequest settingsRequest = new CreateUserSettingsRequest();
-		settingsRequest.setTimezone(request.getTimezone());
+		settingsRequest.setTimezoneId(request.getTimezoneId());
 		settingsRequest.setEmailNotificationEnabled(
 				request.getEmailNotificationEnabled() != null ? request.getEmailNotificationEnabled() : true);
 		userSettingsService.createSettings(user.getId(), settingsRequest);

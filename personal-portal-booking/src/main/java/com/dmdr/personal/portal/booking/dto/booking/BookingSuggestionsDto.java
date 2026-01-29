@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.booking.dto.booking;
 
 import java.time.LocalDate;
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import java.time.LocalTime;
 import java.time.Instant;
 import java.util.List;
@@ -11,7 +12,7 @@ import lombok.Setter;
 @Setter
 public class BookingSuggestionsDto {
 	private LocalDate date;
-	private String timezone;
+	private TimezoneEntry timezone;
 	private String offset;
 	private Long sessionTypeId;
 	private List<Slot> slots;
@@ -24,4 +25,3 @@ public class BookingSuggestionsDto {
 		private LocalTime endTime;
 	}
 }
-

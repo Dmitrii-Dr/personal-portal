@@ -2,7 +2,8 @@ package com.dmdr.personal.portal.controller;
 
 import com.dmdr.personal.portal.content.model.MediaEntity;
 import com.dmdr.personal.portal.content.service.MediaService;
-import com.dmdr.personal.portal.content.service.s3.S3Service;
+import com.dmdr.personal.portal.content.service.storage.ObjectStorageService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -16,13 +17,14 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/public/media")
+@Slf4j
 public class MediaEntityController {
-    
-    private final S3Service s3Service;
+
+    private final ObjectStorageService objectStorageService;
     private final MediaService mediaService;
 
-    public MediaEntityController(S3Service s3Service, MediaService mediaService) {
-        this.s3Service = s3Service;
+    public MediaEntityController(ObjectStorageService objectStorageService, MediaService mediaService) {
+        this.objectStorageService = objectStorageService;
         this.mediaService = mediaService;
     }
 
@@ -30,14 +32,14 @@ public class MediaEntityController {
     public ResponseEntity<byte[]> getImage(@PathVariable("mediaId") UUID mediaId) {
         MediaEntity mediaEntity = mediaService.findById(mediaId)
                 .orElse(null);
-        
+
         if (mediaEntity == null) {
             return ResponseEntity.notFound().build();
         }
-        
+
         String key = mediaEntity.getFileUrl();
-        byte[] imageData = s3Service.downloadFile(key);
-        
+        byte[] imageData = objectStorageService.downloadFile(key);
+
         if (imageData == null) {
             return ResponseEntity.notFound().build();
         }
@@ -45,7 +47,7 @@ public class MediaEntityController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(detectContentType(mediaEntity.getFileType(), key));
         headers.setContentLength(imageData.length);
-        
+
         return new ResponseEntity<>(imageData, headers, HttpStatus.OK);
     }
 
@@ -53,15 +55,15 @@ public class MediaEntityController {
     public ResponseEntity<byte[]> getThumbnail(@PathVariable("mediaId") UUID mediaId) {
         MediaEntity mediaEntity = mediaService.findById(mediaId)
                 .orElse(null);
-        
+
         if (mediaEntity == null) {
             return ResponseEntity.notFound().build();
         }
-        
+
         // Calculate thumbnail key: "thumbnail/" + original fileUrl
         String thumbnailKey = "thumbnail/" + mediaEntity.getFileUrl();
-        byte[] thumbnailData = s3Service.downloadFile(thumbnailKey);
-        
+        byte[] thumbnailData = objectStorageService.downloadFile(thumbnailKey);
+
         if (thumbnailData == null) {
             return ResponseEntity.notFound().build();
         }
@@ -70,7 +72,7 @@ public class MediaEntityController {
         // Thumbnails are always JPEG, so set content type accordingly
         headers.setContentType(MediaType.IMAGE_JPEG);
         headers.setContentLength(thumbnailData.length);
-        
+
         return new ResponseEntity<>(thumbnailData, headers, HttpStatus.OK);
     }
 
@@ -83,7 +85,7 @@ public class MediaEntityController {
                 // Fall through to extension-based detection
             }
         }
-        
+
         // Fallback to extension-based detection
         String lowerKey = key.toLowerCase();
         if (lowerKey.endsWith(".png")) {

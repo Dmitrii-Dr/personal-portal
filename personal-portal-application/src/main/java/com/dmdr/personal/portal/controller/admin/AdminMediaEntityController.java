@@ -49,38 +49,38 @@ public class AdminMediaEntityController {
         if (validationError != null) {
             return ResponseEntity.badRequest().body(Map.of("error", validationError));
         }
-        
+
         try {
             String originalFilename = file.getOriginalFilename();
             if (originalFilename == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "File name is required."));
             }
-            
+
             byte[] fileBytes = file.getBytes();
             String fileType = determineFileType(file);
-            
-            // Step 1: Generate thumbnail first (validates it works before any DB/S3 operations)
-           
-            
+
+            // Step 1: Generate thumbnail first (validates it works before any DB/storage
+            // operations)
+
             if (thumbnailService.isSvg(fileType, originalFilename)) {
                 return ResponseEntity.badRequest()
-                .body(Map.of("error", "SVG files are not supported for thumbnails."));
+                        .body(Map.of("error", "SVG files are not supported for thumbnails."));
             }
-                
+
             byte[] thumbnailBytes = thumbnailService.generateThumbnail(fileBytes);
             if (thumbnailBytes == null) {
                 return ResponseEntity.internalServerError()
                         .body(Map.of("error", "Failed to generate thumbnail."));
             }
-            
+
             // Step 2: Create MediaEntity (without fileUrl - will be set in service)
             MediaEntity mediaEntity = new MediaEntity();
             mediaEntity.setFileType(fileType);
             mediaEntity.setAltText(null);
             mediaEntity.setUploadedById(currentUserService.getCurrentUser().getId());
-            
-            // Step 3: Save to DB and upload to S3 atomically
-            // If S3 upload fails, DB transaction will rollback automatically
+
+            // Step 3: Save to DB and upload to object storage atomically
+            // If storage upload fails, DB transaction will rollback automatically
             MediaEntity savedMedia = mediaService.createMediaWithS3Upload(
                     mediaEntity,
                     originalFilename,
@@ -91,7 +91,7 @@ public class AdminMediaEntityController {
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Failed to read file."));
         } catch (RuntimeException e) {
-            // S3 upload failure - transaction already rolled back
+            // Storage upload failure - transaction already rolled back
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to upload file: " + e.getMessage()));
         }
@@ -122,13 +122,13 @@ public class AdminMediaEntityController {
     public ResponseEntity<PaginatedResponse<MediaEntityResponse>> getMediaGallery(
             @PageableDefault(size = 20) Pageable pageable) {
         Page<MediaEntity> mediaPage = mediaService.findAll(pageable);
-        
+
         // Map entities to DTOs manually to ensure all items are included
         java.util.List<MediaEntityResponse> content = mediaPage.getContent().stream()
                 .map(MediaEntityMapper::toResponse)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toList());
-        
+
         // Create PaginatedResponse with the mapped content
         PaginatedResponse<MediaEntityResponse> paginatedResponse = new PaginatedResponse<>(
                 content,
@@ -138,18 +138,18 @@ public class AdminMediaEntityController {
                 mediaPage.getTotalPages(),
                 mediaPage.isFirst(),
                 mediaPage.isLast(),
-                content.size()
-        );
-        
+                content.size());
+
         return ResponseEntity.ok(paginatedResponse);
     }
 
     @DeleteMapping("/media/image/{mediaId}")
     public ResponseEntity<Map<String, String>> deleteImage(@PathVariable("mediaId") UUID mediaId) {
         try {
-            // Validation and deletion (including S3 cleanup) are handled in the service layer
+            // Validation and deletion (including storage cleanup) are handled in the
+            // service layer
             mediaService.deleteMediaWithS3Cleanup(mediaId);
-            
+
             return ResponseEntity.ok(Map.of("message", "File deleted successfully", "mediaId", mediaId.toString()));
         } catch (IllegalArgumentException e) {
             // Return 400 Bad Request if media is used by articles or not found
@@ -158,8 +158,9 @@ public class AdminMediaEntityController {
             }
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (RuntimeException e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to delete file: " + e.getMessage()));
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to delete file: " + e.getMessage()));
         }
     }
-    
+
 }

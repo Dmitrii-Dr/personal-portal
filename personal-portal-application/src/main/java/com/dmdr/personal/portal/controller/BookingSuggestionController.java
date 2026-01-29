@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.controller;
 
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestion;
 import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestionsDto;
 import com.dmdr.personal.portal.booking.model.SessionType;
@@ -26,71 +27,69 @@ public class BookingSuggestionController {
 	private final SessionTypeRepository sessionTypeRepository;
 
 	public BookingSuggestionController(
-		AvailabilityService availabilityService,
-		SessionTypeRepository sessionTypeRepository
-	) {
+			AvailabilityService availabilityService,
+			SessionTypeRepository sessionTypeRepository) {
 		this.availabilityService = availabilityService;
 		this.sessionTypeRepository = sessionTypeRepository;
 	}
 
 	@GetMapping
 	public ResponseEntity<BookingSuggestionsDto> getBookingSuggestions(
-		@RequestParam Long sessionTypeId,
-		@RequestParam LocalDate suggestedDate,
-		@RequestParam String timezone
-	) {
+			@RequestParam Long sessionTypeId,
+			@RequestParam LocalDate suggestedDate,
+			@RequestParam Integer timezoneId) {
 		// Get session type to retrieve duration
 		SessionType sessionType = sessionTypeRepository.findById(sessionTypeId)
-			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + sessionTypeId));
+				.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + sessionTypeId));
 
 		// Calculate booking suggestions
 		List<BookingSuggestion> suggestions = availabilityService.calculateBookingSuggestion(
-			sessionType,
-			suggestedDate,
-			timezone
-		);
+				sessionType,
+				suggestedDate,
+				timezoneId);
 
 		// Transform to DTO
-		BookingSuggestionsDto dto = transformToDto(suggestions, sessionTypeId, suggestedDate, timezone);
+		BookingSuggestionsDto dto = transformToDto(suggestions, sessionTypeId, suggestedDate,
+				TimezoneEntry.getById(timezoneId));
 
 		return ResponseEntity.ok(dto);
 	}
 
 	private BookingSuggestionsDto transformToDto(
-		List<BookingSuggestion> suggestions,
-		Long sessionTypeId,
-		LocalDate date,
-		String timezone
-	) {
+			List<BookingSuggestion> suggestions,
+			Long sessionTypeId,
+			LocalDate date,
+			TimezoneEntry timezoneEntry) {
 		BookingSuggestionsDto dto = new BookingSuggestionsDto();
 		dto.setDate(date);
-		dto.setTimezone(timezone);
+		dto.setTimezone(timezoneEntry);
 		dto.setSessionTypeId(sessionTypeId);
 
 		// Calculate offset from timezone
-		ZoneId zoneId = ZoneId.of(timezone);
+		ZoneId zoneId = ZoneId.of(timezoneEntry.getGmtOffset());
 		Instant now = Instant.now();
 		ZoneOffset offset = zoneId.getRules().getOffset(now);
 		dto.setOffset(offset.toString());
 
 		// Transform suggestions to slots
 		List<BookingSuggestionsDto.Slot> slots = suggestions.stream()
-			.map(suggestion -> {
-				BookingSuggestionsDto.Slot slot = new BookingSuggestionsDto.Slot();
-				LocalTime startTime = suggestion.getStartTime()
-					.atZone(zoneId)
-					.toLocalTime();
-				LocalTime endTime = suggestion.getEndTime()
-					.atZone(zoneId)
-					.toLocalTime();
-				slot.setStartTime(startTime);
-				slot.setEndTime(endTime);
-				slot.setStartTimeInstant(suggestion.getStartTimeInstant());
-				return slot;
-			})
-			.collect(Collectors.toList());
+				.map(suggestion -> {
+					BookingSuggestionsDto.Slot slot = new BookingSuggestionsDto.Slot();
+					LocalTime startTime = suggestion.getStartTime()
+							.atZone(zoneId)
+							.toLocalTime();
+					LocalTime endTime = suggestion.getEndTime()
+							.atZone(zoneId)
+							.toLocalTime();
+					slot.setStartTime(startTime);
+					slot.setEndTime(endTime);
+					slot.setStartTimeInstant(suggestion.getStartTimeInstant());
+					return slot;
+				})
+				.collect(Collectors.toList());
 
 		dto.setSlots(slots);
 		return dto;
 	}
+
 }

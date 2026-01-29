@@ -26,7 +26,5 @@ public class UpdateBookingSettingsRequest {
 	private int bookingUpdatingInterval;
 
 	@NotNull
-	private String defaultTimezone;
+	private Integer defaultTimezoneId;
 }
-
-

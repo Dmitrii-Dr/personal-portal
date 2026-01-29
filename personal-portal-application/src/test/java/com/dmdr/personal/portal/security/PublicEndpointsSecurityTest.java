@@ -43,17 +43,19 @@ class PublicEndpointsSecurityTest extends SecurityTestBase {
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/registry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"registrytest" + System.currentTimeMillis()
-                        + "@example.com\",\"password\":\"password123\"}"))
+                        + "@example.com\",\"password\":\"password123\","
+                        + "\"firstName\":\"Test\",\"lastName\":\"User\","
+                        + "\"phoneNumber\":\"+1234567890\",\"signedAgreements\":{}}"))
                 .andExpect(status().is2xxSuccessful()); // Should succeed (201 Created) or 4xx (validation), not 401/403
     }
-
 
     @Test
     @DisplayName("Should deny access to /api/v1/auth/login with token (409 Conflict)")
     void shouldDenyAccessToLoginWithToken() throws Exception {
         String userToken = generateUserToken();
 
-        // Authenticated users should get 409 Conflict when trying to access login endpoint
+        // Authenticated users should get 409 Conflict when trying to access login
+        // endpoint
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/login")
                 .header("Authorization", "Bearer " + userToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -66,12 +68,15 @@ class PublicEndpointsSecurityTest extends SecurityTestBase {
     void shouldDenyAccessToRegistryWithToken() throws Exception {
         String adminToken = generateAdminToken();
 
-        // Authenticated users should get 409 Conflict when trying to access registry endpoint
+        // Authenticated users should get 409 Conflict when trying to access registry
+        // endpoint
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/registry")
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"registrytokentest" + System.currentTimeMillis()
-                        + "@example.com\",\"password\":\"password123\"}"))
+                        + "@example.com\",\"password\":\"password123\","
+                        + "\"firstName\":\"Test\",\"lastName\":\"User\","
+                        + "\"phoneNumber\":\"+1234567890\",\"signedAgreements\":{}}"))
                 .andExpect(status().isConflict());
     }
 

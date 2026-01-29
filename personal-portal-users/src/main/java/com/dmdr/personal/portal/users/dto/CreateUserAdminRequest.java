@@ -2,6 +2,7 @@ package com.dmdr.personal.portal.users.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,9 +26,8 @@ public class CreateUserAdminRequest {
 	@Size(max = 20, message = "Phone number must be at most 20 characters")
 	private String phoneNumber;
 
-	@NotBlank(message = "Timezone is required")
-	@Size(max = 50, message = "Timezone must be at most 50 characters")
-	private String timezone;
+	@NotNull(message = "Timezone ID is required")
+	private Integer timezoneId;
 
 	private Boolean emailNotificationEnabled;
 }

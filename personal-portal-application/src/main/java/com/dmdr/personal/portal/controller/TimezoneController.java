@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/timezone")
+@RequestMapping("/api/v1/public/timezone")
 public class TimezoneController {
 
 	private final TimezoneService timezoneService;

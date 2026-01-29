@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.booking.dto.availability.rule;
 
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import com.dmdr.personal.portal.booking.model.AvailabilityRule;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -17,9 +18,7 @@ public class AvailabilityRuleResponse {
 	private LocalTime availableEndTime;
 	private LocalDate ruleStartDate;
 	private LocalDate ruleEndDate;
-	private String timezone;
+	private TimezoneEntry timezone;
 	private String utcOffset;
 	private AvailabilityRule.RuleStatus ruleStatus;
 }
-
-

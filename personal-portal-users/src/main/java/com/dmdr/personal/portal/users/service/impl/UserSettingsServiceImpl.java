@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.users.service.impl;
 
 import com.dmdr.personal.portal.core.model.Currency;
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import com.dmdr.personal.portal.users.dto.CreateUserSettingsRequest;
 import com.dmdr.personal.portal.users.dto.UpdateUserSettingsRequest;
 import com.dmdr.personal.portal.users.dto.UserSettingsResponse;
@@ -54,7 +55,9 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 
 		UserSettings settings = new UserSettings();
 		settings.setUser(user);
-		settings.setTimezone(request.getTimezone());
+		// Validate timezone exists
+		TimezoneEntry.getById(request.getTimezoneId());
+		settings.setTimezoneId(request.getTimezoneId());
 		settings.setLanguage("ru"); // Default language for future i18n support
 		settings.setCurrency(request.getCurrency() != null ? request.getCurrency() : Currency.RUB);
 		settings.setEmailNotificationEnabled(
@@ -70,7 +73,9 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 		UserSettings settings = userSettingsRepository.findByUserId(userId)
 				.orElseThrow(() -> new IllegalArgumentException("User settings not found for user: " + userId));
 
-		settings.setTimezone(request.getTimezone());
+		// Validate timezone exists
+		TimezoneEntry.getById(request.getTimezoneId());
+		settings.setTimezoneId(request.getTimezoneId());
 		if (request.getCurrency() != null) {
 			settings.setCurrency(request.getCurrency());
 		}
@@ -92,4 +97,5 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 		}
 		return settings.isEmailNotificationEnabled();
 	}
+
 }

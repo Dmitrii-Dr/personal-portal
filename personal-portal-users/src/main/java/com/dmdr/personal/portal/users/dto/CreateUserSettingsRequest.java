@@ -1,8 +1,7 @@
 package com.dmdr.personal.portal.users.dto;
 
 import com.dmdr.personal.portal.core.model.Currency;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -12,9 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class CreateUserSettingsRequest {
 
-	@NotBlank(message = "Timezone is required")
-	@Size(max = 50, message = "Timezone must be at most 50 characters")
-	private String timezone;
+	@NotNull(message = "Timezone ID is required")
+	private Integer timezoneId;
 
 	private Currency currency;
 

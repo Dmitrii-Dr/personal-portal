@@ -6,7 +6,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class TimezoneResponse {
-	private String timezone;
+	private int id;
+	private String displayName;
 	private String offset;
 }
-

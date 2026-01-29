@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.booking.dto.availability.override;
 
+import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import com.dmdr.personal.portal.booking.model.OverrideStatus;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import java.time.LocalDate;
@@ -25,9 +26,8 @@ public class AvailabilityOverrideResponse {
 	private LocalTime startTime;
 	private LocalTime endTime;
 
-	private String timezone;
+	private TimezoneEntry timezone;
 	private String utcOffset;
 
 	private OverrideStatus status;
 }
-
