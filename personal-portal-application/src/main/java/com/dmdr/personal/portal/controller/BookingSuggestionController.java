@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
@@ -73,14 +74,19 @@ public class BookingSuggestionController {
 
 		// Transform suggestions to slots
 		List<BookingSuggestionsDto.Slot> slots = suggestions.stream()
+				.sorted(Comparator.comparing(BookingSuggestion::getStartTimeInstant))
 				.map(suggestion -> {
 					BookingSuggestionsDto.Slot slot = new BookingSuggestionsDto.Slot();
+					LocalDate localDateOfSuggestion = suggestion.getStartTimeInstant()
+							.atZone(zoneId)
+							.toLocalDate();
 					LocalTime startTime = suggestion.getStartTime()
 							.atZone(zoneId)
 							.toLocalTime();
 					LocalTime endTime = suggestion.getEndTime()
 							.atZone(zoneId)
 							.toLocalTime();
+					slot.setDate(localDateOfSuggestion);
 					slot.setStartTime(startTime);
 					slot.setEndTime(endTime);
 					slot.setStartTimeInstant(suggestion.getStartTimeInstant());

@@ -21,6 +21,8 @@ public class BookingSuggestionsDto {
 	@Setter
 	public static class Slot {
 		private Instant startTimeInstant;
+		//local date in given timezone may differ from UTC date (startTimeInstant)
+		private LocalDate date;
 		private LocalTime startTime;
 		private LocalTime endTime;
 	}
