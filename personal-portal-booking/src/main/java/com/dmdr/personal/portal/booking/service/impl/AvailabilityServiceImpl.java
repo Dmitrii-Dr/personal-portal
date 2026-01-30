@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -64,13 +65,35 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 		Instant dayStartInstant = startOfDay.atZone(zoneId).toInstant();
 		Instant dayEndInstant = endOfDay.atZone(zoneId).toInstant();
 
+		// The case when schedule is empty and the first slot is shown based on BookingFirstSlotInterval
+		// If user select the first next available slot (today, or another day depending on BookingFirstSlotInterval)
+		// Some time past while user submitting the request and validation of minimumStartTime fails
+		// Here we relax minimumStartTime validation and allow 10 minutes delay if it's around defaultMinimumStartTime
+		Instant now = Instant.now();
+		Instant defaultMinimumStartTime = now.plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
+
+		Instant minimumStartTime = defaultMinimumStartTime;
+		if (requestedStartTime.isAfter(now) && requestedStartTime.isBefore(defaultMinimumStartTime)) {
+			long secondsBeforeDefault = Duration.between(requestedStartTime, defaultMinimumStartTime).getSeconds();
+			//10 minutes relaxation for MinimumStartTime validation
+			if (secondsBeforeDefault > 10 * 60L) {
+				throw new IllegalArgumentException(
+						"Requested start time is too early. " +
+								"Start: " + requestedStartTime +
+								", Minimum allowed: " + defaultMinimumStartTime +
+								", Please try to select a new slot");
+			}
+			minimumStartTime = requestedStartTime;
+		}
+
+
 		// Follow the same logic as calculateBookingSuggestion:
 		// 1. Find matching rules (may be empty, but availability can come from
 		// overrides)
 		// 2. Calculate available time ranges (which includes subtracting unavailable,
 		// adding available overrides, and subtracting booked)
 		List<TimeRange> allAvailableRanges = calculateAvailableTimeRanges(
-				dayStartInstant, dayEndInstant, requestedDate, zoneId, settings);
+				dayStartInstant, dayEndInstant, requestedDate, zoneId, minimumStartTime);
 
 		// Check if requested time range is fully contained in any available range
 		TimeRange requestedRange = new TimeRange(requestedStartTime, requestedEndTime);
@@ -143,9 +166,14 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 		// Get booking settings for slot interval
 		BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
 
+		// Calculate minimum start time (now + bookingFirstSlotInterval)
+		// This ensures sessions cannot be booked too soon (e.g., not within 5 minutes,
+		// or not within 2 days)
+		Instant minimumStartTime = Instant.now().plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
+
 		// Calculate available time ranges
 		List<TimeRange> allAvailableRanges = calculateAvailableTimeRanges(
-				dayStartInstant, dayEndInstant, suggestedDate, zoneId, settings);
+				dayStartInstant, dayEndInstant, suggestedDate, zoneId, minimumStartTime);
 
 		List<BookingSuggestion> suggestions = new ArrayList<>();
 		for (TimeRange availableRange : allAvailableRanges) {
@@ -250,15 +278,10 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 			Instant dayEndInstant,
 			LocalDate suggestedDate,
 			ZoneId zoneId,
-			BookingSettings settings) {
+			Instant minimumStartTime) {
 		// Find rules that match the day
 		List<AvailabilityRule> matchingRules = findMatchingRulesForDay(
 				dayStartInstant, dayEndInstant, suggestedDate, zoneId);
-
-		// Calculate minimum start time (now + bookingFirstSlotInterval)
-		// This ensures sessions cannot be booked too soon (e.g., not within 5 minutes,
-		// or not within 2 days)
-		Instant minimumStartTime = Instant.now().plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
 
 		// Get unavailable overrides that reduce availability
 		List<AvailabilityOverride> unavailableOverrides = overrideRepository.findOverlappingUnavailableOverrides(
