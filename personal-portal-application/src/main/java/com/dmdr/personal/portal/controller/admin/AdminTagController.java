@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/admin/tag")
+@RequestMapping("/api/v1/admin/tags")
 @RequiredArgsConstructor
 public class AdminTagController {
 

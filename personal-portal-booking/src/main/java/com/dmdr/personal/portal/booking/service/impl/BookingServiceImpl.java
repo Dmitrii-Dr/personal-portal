@@ -358,31 +358,6 @@ public class BookingServiceImpl implements BookingService {
 	}
 
 	@Override
-	@Transactional
-	public void delete(UUID userId, Long bookingId) {
-		Booking entity = bookingRepository.findById(bookingId)
-			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
-
-		// Verify the booking belongs to the user
-		if (!entity.getClient().getId().equals(userId)) {
-			throw new IllegalArgumentException("Booking does not belong to user: " + userId);
-		}
-
-		// Validate booking cancellation interval
-		BookingSettings settings = getBookingSettings();
-		Instant now = Instant.now();
-		Duration timeUntilBooking = Duration.between(now, entity.getStartTime());
-		long minutesUntilBooking = timeUntilBooking.toMinutes();
-		
-		if (minutesUntilBooking < settings.getBookingCancelationInterval()) {
-			throw new IllegalArgumentException(
-				"Booking can only be cancelled at least " + settings.getBookingCancelationInterval() + " minutes before the start time");
-		}
-
-		bookingRepository.delete(entity);
-	}
-
-	@Override
 	@Transactional(readOnly = true)
 	public List<BookingResponse> getAllByStatus(BookingStatus status) {
 		return bookingRepository.findByStatusOrderByStartTimeAsc(status).stream()

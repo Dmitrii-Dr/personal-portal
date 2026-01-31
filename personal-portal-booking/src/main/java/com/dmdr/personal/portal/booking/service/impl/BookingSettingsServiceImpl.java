@@ -1,6 +1,6 @@
 package com.dmdr.personal.portal.booking.service.impl;
 
-import com.dmdr.personal.portal.booking.dto.booking.BookingSettingsResponse;
+import com.dmdr.personal.portal.booking.dto.booking.AdminBookingSettingsResponse;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingSettingsRequest;
 import com.dmdr.personal.portal.booking.model.AvailabilityRule;
 import com.dmdr.personal.portal.booking.model.BookingSettings;
@@ -10,9 +10,6 @@ import com.dmdr.personal.portal.booking.repository.AvailabilityOverrideRepositor
 import com.dmdr.personal.portal.booking.repository.AvailabilityRuleRepository;
 import com.dmdr.personal.portal.booking.repository.BookingSettingsRepository;
 import com.dmdr.personal.portal.booking.service.BookingSettingsService;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,14 +31,14 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
 
     @Override
     @Transactional(readOnly = true)
-    public BookingSettingsResponse getSettings() {
+    public AdminBookingSettingsResponse getSettings() {
         BookingSettings settings = repository.mustFindTopByOrderByIdAsc();
         return toResponse(settings);
     }
 
     @Override
     @Transactional
-    public BookingSettingsResponse updateSettings(UpdateBookingSettingsRequest request) {
+    public AdminBookingSettingsResponse updateSettings(UpdateBookingSettingsRequest request) {
         BookingSettings settings = repository.mustFindTopByOrderByIdAsc();
 
         settings.setBookingSlotsInterval(request.getBookingSlotsInterval());
@@ -63,8 +60,8 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         return toResponse(saved);
     }
 
-    private static BookingSettingsResponse toResponse(BookingSettings settings) {
-        BookingSettingsResponse resp = new BookingSettingsResponse();
+    private static AdminBookingSettingsResponse toResponse(BookingSettings settings) {
+        AdminBookingSettingsResponse resp = new AdminBookingSettingsResponse();
         resp.setId(settings.getId());
         resp.setBookingSlotsInterval(settings.getBookingSlotsInterval());
         resp.setBookingFirstSlotInterval(settings.getBookingFirstSlotInterval());

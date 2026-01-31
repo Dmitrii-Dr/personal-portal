@@ -10,7 +10,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class BookingSuggestionsDto {
+public class BookingSuggestionsResponse {
 	private LocalDate date;
 	private TimezoneEntry timezone;
 	private String offset;

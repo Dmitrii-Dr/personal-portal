@@ -122,7 +122,7 @@ public class AvailabilityOverrideValidator {
 		// timezone
 		// (This is a defensive check; timezone consistency is already validated against
 		// all non-archived rules)
-		if (ruleTimezone == null || !overrideTimezone.equals(ruleTimezone)) {
+		if (overrideTimezone.getId() != rule.getTimezoneId()) {
 			throw new IllegalArgumentException(
 					"Rules and overrides must be in the same timezone");
 		}

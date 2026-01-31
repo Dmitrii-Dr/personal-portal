@@ -2,7 +2,7 @@ package com.dmdr.personal.portal.controller;
 
 import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestion;
-import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestionsDto;
+import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestionsResponse;
 import com.dmdr.personal.portal.booking.model.SessionType;
 import com.dmdr.personal.portal.booking.repository.SessionTypeRepository;
 import com.dmdr.personal.portal.booking.service.AvailabilityService;
@@ -35,7 +35,7 @@ public class BookingSuggestionController {
 	}
 
 	@GetMapping
-	public ResponseEntity<BookingSuggestionsDto> getBookingSuggestions(
+	public ResponseEntity<BookingSuggestionsResponse> getBookingSuggestions(
 			@RequestParam Long sessionTypeId,
 			@RequestParam LocalDate suggestedDate,
 			@RequestParam Integer timezoneId) {
@@ -50,18 +50,18 @@ public class BookingSuggestionController {
 				timezoneId);
 
 		// Transform to DTO
-		BookingSuggestionsDto dto = transformToDto(suggestions, sessionTypeId, suggestedDate,
+		BookingSuggestionsResponse dto = transformToDto(suggestions, sessionTypeId, suggestedDate,
 				TimezoneEntry.getById(timezoneId));
 
 		return ResponseEntity.ok(dto);
 	}
 
-	private BookingSuggestionsDto transformToDto(
+	private BookingSuggestionsResponse transformToDto(
 			List<BookingSuggestion> suggestions,
 			Long sessionTypeId,
 			LocalDate date,
 			TimezoneEntry timezoneEntry) {
-		BookingSuggestionsDto dto = new BookingSuggestionsDto();
+		BookingSuggestionsResponse dto = new BookingSuggestionsResponse();
 		dto.setDate(date);
 		dto.setTimezone(timezoneEntry);
 		dto.setSessionTypeId(sessionTypeId);
@@ -73,10 +73,10 @@ public class BookingSuggestionController {
 		dto.setOffset(offset.toString());
 
 		// Transform suggestions to slots
-		List<BookingSuggestionsDto.Slot> slots = suggestions.stream()
+		List<BookingSuggestionsResponse.Slot> slots = suggestions.stream()
 				.sorted(Comparator.comparing(BookingSuggestion::getStartTimeInstant))
 				.map(suggestion -> {
-					BookingSuggestionsDto.Slot slot = new BookingSuggestionsDto.Slot();
+					BookingSuggestionsResponse.Slot slot = new BookingSuggestionsResponse.Slot();
 					LocalDate localDateOfSuggestion = suggestion.getStartTimeInstant()
 							.atZone(zoneId)
 							.toLocalDate();

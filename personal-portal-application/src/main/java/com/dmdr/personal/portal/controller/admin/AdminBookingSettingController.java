@@ -1,6 +1,6 @@
 package com.dmdr.personal.portal.controller.admin;
 
-import com.dmdr.personal.portal.booking.dto.booking.BookingSettingsResponse;
+import com.dmdr.personal.portal.booking.dto.booking.AdminBookingSettingsResponse;
 import com.dmdr.personal.portal.booking.dto.booking.UpdateBookingSettingsRequest;
 import com.dmdr.personal.portal.booking.service.BookingSettingsService;
 import jakarta.validation.Valid;
@@ -22,12 +22,12 @@ public class AdminBookingSettingController {
 	}
 
 	@GetMapping
-	public ResponseEntity<BookingSettingsResponse> getSettings() {
+	public ResponseEntity<AdminBookingSettingsResponse> getSettings() {
 		return ResponseEntity.ok(bookingSettingsService.getSettings());
 	}
 
 	@PutMapping
-	public ResponseEntity<BookingSettingsResponse> updateSettings(
+	public ResponseEntity<AdminBookingSettingsResponse> updateSettings(
 		@Valid @RequestBody UpdateBookingSettingsRequest request
 	) {
 		return ResponseEntity.ok(bookingSettingsService.updateSettings(request));

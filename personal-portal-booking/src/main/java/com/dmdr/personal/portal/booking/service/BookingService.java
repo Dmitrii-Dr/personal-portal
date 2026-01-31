@@ -26,7 +26,6 @@ public interface BookingService {
 	BookingResponse update(UUID userId, UpdateBookingRequest request);
 	AdminBookingResponse updateByAdmin(UpdateBookingAdminRequest request);
 	BookingResponse cancel(UUID userId, Long bookingId);
-	void delete(UUID userId, Long bookingId);
 	List<BookingResponse> getAllByStatus(BookingStatus status);
 	List<com.dmdr.personal.portal.booking.model.Booking> getAllBookingsByStatus(BookingStatus status);
 	Page<com.dmdr.personal.portal.booking.model.Booking> getAllBookingsByStatus(BookingStatus status, Pageable pageable);
