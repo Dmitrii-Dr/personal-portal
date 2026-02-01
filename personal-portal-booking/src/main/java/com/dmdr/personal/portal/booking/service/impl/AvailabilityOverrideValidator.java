@@ -21,6 +21,17 @@ public class AvailabilityOverrideValidator {
 		this.repository = repository;
 	}
 
+	public void validateOverrideStartTime(Instant overrideStartInstant, TimezoneEntry timezone) {
+		Instant now = Instant.now();
+		if (overrideStartInstant.isBefore(now)) {
+			ZoneId zoneId = ZoneId.of(timezone.getGmtOffset());
+			throw new IllegalArgumentException(
+					"Override start time cannot be before the current time. " +
+							" Override start time: " + overrideStartInstant.atZone(zoneId)  +
+							" Current time: " + now.atZone(zoneId));
+		}
+	}
+
 	/**
 	 * Validates override consistency with availability rules.
 	 * 

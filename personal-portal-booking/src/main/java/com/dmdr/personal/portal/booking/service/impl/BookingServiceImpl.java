@@ -40,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BookingServiceImpl implements BookingService {
+	private final Object bookingLock = new Object();
 
 	private final BookingRepository bookingRepository;
 	private final SessionTypeRepository sessionTypeRepository;
@@ -134,27 +135,30 @@ public class BookingServiceImpl implements BookingService {
 			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
 		);
 
-		availabilityService.validateBookingAvailability(request.getStartTimeInstant(), endTime);
+		Booking saved = null;
+		synchronized (bookingLock) {
+			availabilityService.validateBookingAvailability(request.getStartTimeInstant(), endTime);
 
-		Booking entity = new Booking();
-		entity.setClient(client);
-		// Copy session type data into booking (denormalization)
-		entity.setSessionName(sessionType.getName());
-		entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
-		entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
-		// Copy session type prices filtered by user's currency
-		Currency userCurrency = userSettingsService.getUserCurrency(userId);
-		Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
-		entity.setSessionPrices(filteredPrices);
-		entity.setSessionDescription(sessionType.getDescription());
-		entity.setStartTime(request.getStartTimeInstant());
-		// Set endTime (includes duration + buffer for validation purposes)
-		entity.setEndTime(endTime);
-		entity.setStatus(BookingStatus.PENDING_APPROVAL);
-		entity.setClientMessage(request.getClientMessage());
+			Booking entity = new Booking();
+			entity.setClient(client);
+			// Copy session type data into booking (denormalization)
+			entity.setSessionName(sessionType.getName());
+			entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
+			entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
+			// Copy session type prices filtered by user's currency
+			Currency userCurrency = userSettingsService.getUserCurrency(userId);
+			Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
+			entity.setSessionPrices(filteredPrices);
+			entity.setSessionDescription(sessionType.getDescription());
+			entity.setStartTime(request.getStartTimeInstant());
+			// Set endTime (includes duration + buffer for validation purposes)
+			entity.setEndTime(endTime);
+			entity.setStatus(BookingStatus.PENDING_APPROVAL);
+			entity.setClientMessage(request.getClientMessage());
 
-		Booking saved = bookingRepository.save(entity);
-		
+			saved = bookingRepository.saveAndFlush(entity);
+		}
+
 		// Send email notification to all admin users
 		try {
 			List<User> adminUsers = userService.findByRoleName(SystemRole.ADMIN.getAuthority(), null);
@@ -205,29 +209,32 @@ public class BookingServiceImpl implements BookingService {
 		Instant endTime = request.getStartTimeInstant().plusSeconds(
 			(sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
 		);
+		Booking saved = null;
 
-		// Validate availability using admin validation (no rules/overrides check)
-		availabilityService.validateBookingAvailabilityForAdmin(request.getStartTimeInstant(), endTime);
+		synchronized (bookingLock) {
+			// Validate availability using admin validation (no rules/overrides check)
+			availabilityService.validateBookingAvailabilityForAdmin(request.getStartTimeInstant(), endTime);
 
-		// Create booking entity
-		Booking entity = new Booking();
-		entity.setClient(client);
-		// Copy session type data into booking (denormalization)
-		entity.setSessionName(sessionType.getName());
-		entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
-		entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
-		// Copy session type prices filtered by user's currency
-		Currency userCurrency = userSettingsService.getUserCurrency(request.getUserId());
-		Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
-		entity.setSessionPrices(filteredPrices);
-		entity.setSessionDescription(sessionType.getDescription());
-		entity.setStartTime(request.getStartTimeInstant());
-		// Set endTime (includes duration + buffer for validation purposes)
-		entity.setEndTime(endTime);
-		entity.setStatus(BookingStatus.PENDING_APPROVAL); 
-		entity.setClientMessage(request.getClientMessage());
+			// Create booking entity
+			Booking entity = new Booking();
+			entity.setClient(client);
+			// Copy session type data into booking (denormalization)
+			entity.setSessionName(sessionType.getName());
+			entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
+			entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
+			// Copy session type prices filtered by user's currency
+			Currency userCurrency = userSettingsService.getUserCurrency(request.getUserId());
+			Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
+			entity.setSessionPrices(filteredPrices);
+			entity.setSessionDescription(sessionType.getDescription());
+			entity.setStartTime(request.getStartTimeInstant());
+			// Set endTime (includes duration + buffer for validation purposes)
+			entity.setEndTime(endTime);
+			entity.setStatus(BookingStatus.PENDING_APPROVAL);
+			entity.setClientMessage(request.getClientMessage());
 
-		Booking saved = bookingRepository.save(entity);
+			saved = bookingRepository.save(entity);
+		}
 
 		return toAdminResponse(saved);
 	}
@@ -269,18 +276,21 @@ public class BookingServiceImpl implements BookingService {
 		Instant endTime = request.getStartTime().plusSeconds(
 			(entity.getSessionDurationMinutes() + entity.getSessionBufferMinutes()) * 60L
 		);
+		Booking saved = null;
+		synchronized (bookingLock) {
+			// Validate booking availability for the new time slot
+			availabilityService.validateBookingAvailability(request.getStartTime(), endTime);
 
-		// Validate booking availability for the new time slot
-		availabilityService.validateBookingAvailability(request.getStartTime(), endTime);
+			entity.setStartTime(request.getStartTime());
+			// Set endTime (includes duration only, buffer is for validation purposes)
+			Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
+			entity.setEndTime(endTimeForEntity);
+			entity.setClientMessage(request.getClientMessage());
+			entity.setStatus(BookingStatus.PENDING_APPROVAL);
 
-		entity.setStartTime(request.getStartTime());
-		// Set endTime (includes duration only, buffer is for validation purposes)
-		Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
-		entity.setEndTime(endTimeForEntity);
-		entity.setClientMessage(request.getClientMessage());
-		entity.setStatus(BookingStatus.PENDING_APPROVAL);
+			saved = bookingRepository.saveAndFlush(entity);
+		}
 
-		Booking saved = bookingRepository.save(entity);
 		return toResponse(saved);
 	}
 
@@ -306,20 +316,23 @@ public class BookingServiceImpl implements BookingService {
 		Instant endTime = request.getStartTime().plusSeconds(
 			(entity.getSessionDurationMinutes() + entity.getSessionBufferMinutes()) * 60L
 		);
+		Booking saved = null;
+		synchronized (bookingLock) {
+			// Validate booking availability using admin validation (no rules/overrides check)
+			availabilityService.validateBookingAvailabilityForAdmin(request.getStartTime(), endTime);
 
-		// Validate booking availability using admin validation (no rules/overrides check)
-		availabilityService.validateBookingAvailabilityForAdmin(request.getStartTime(), endTime);
+			// Update booking entity
+			entity.setClient(client);
+			entity.setStartTime(request.getStartTime());
+			// Set endTime (includes duration only, buffer is for validation purposes)
+			Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
+			entity.setEndTime(endTimeForEntity);
+			entity.setClientMessage(request.getClientMessage());
+			// Keep the existing status (CONFIRMED or PENDING_APPROVAL)
 
-		// Update booking entity
-		entity.setClient(client);
-		entity.setStartTime(request.getStartTime());
-		// Set endTime (includes duration only, buffer is for validation purposes)
-		Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
-		entity.setEndTime(endTimeForEntity);
-		entity.setClientMessage(request.getClientMessage());
-		// Keep the existing status (CONFIRMED or PENDING_APPROVAL)
+			saved = bookingRepository.saveAndFlush(entity);
+		}
 
-		Booking saved = bookingRepository.save(entity);
 		return toAdminResponse(saved);
 	}
 
@@ -514,4 +527,3 @@ public class BookingServiceImpl implements BookingService {
 		return new AdminBookingResponse(bookingResponse, entity.getClient());
 	}
 }
-

@@ -4,6 +4,10 @@ public enum ArticleStatus {
     DRAFT,
     PUBLISHED,
     PRIVATE,
-    ARCHIVED
+    ARCHIVED;
+
+    public static boolean isUnpublished(ArticleStatus status) {
+        return status != ArticleStatus.PUBLISHED;
+    }
 }
 

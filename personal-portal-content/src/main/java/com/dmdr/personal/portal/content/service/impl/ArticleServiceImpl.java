@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class ArticleServiceImpl implements ArticleService {
-
     private final ArticleRepository articleRepository;
     private final TagService tagService;
     private final MediaService mediaService;
@@ -253,6 +252,10 @@ public class ArticleServiceImpl implements ArticleService {
         if (!CollectionUtils.isEmpty(request.getAllowedUserIds())
                 && newStatus == ArticleStatus.PUBLISHED) {
             throw new IllegalArgumentException("Allowed users cannot be set for PUBLISHED articles");
+        }
+        if (ArticleStatus.isUnpublished(newStatus) && homePageRepository.existsByArticleId(articleId)) {
+            throw new IllegalArgumentException(
+                    "Cannot unpublish article with id " + articleId + " because it is being used by the home page");
         }
 
         // Check if slug is being changed and validate uniqueness

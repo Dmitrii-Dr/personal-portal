@@ -31,8 +31,8 @@ public class AvailabilityRuleValidator {
 			ZoneId zoneId = ZoneId.of(timezone.getGmtOffset());
 			throw new IllegalArgumentException(
 					"Rule start time cannot be before the current time. " +
-							"Rule start time: " + ruleStartInstant.atZone(zoneId) + " (" + timezone + "), " +
-							"Current time: " + now.atZone(zoneId) + " (" + timezone + ")");
+							" Rule start time: " + ruleStartInstant.atZone(zoneId)  +
+							" Current time: " + now.atZone(zoneId));
 		}
 	}
 

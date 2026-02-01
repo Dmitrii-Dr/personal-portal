@@ -67,6 +67,7 @@ public class AvailabilityOverrideServiceImpl implements AvailabilityOverrideServ
 		validateOverrideWithinSingleDay(startZoned, endZoned, zoneId);
 
 		Instant startInstant = startZoned.toInstant();
+		validator.validateOverrideStartTime(startInstant, timezone);
 		Instant endInstant = endZoned.toInstant();
 
 		validateOverrideDuration(startInstant, endInstant);
