@@ -5,6 +5,8 @@ import com.dmdr.personal.portal.core.model.TimezoneEntry;
 import java.time.LocalTime;
 import java.time.Instant;
 import java.util.List;
+
+import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -15,6 +17,8 @@ public class BookingSuggestionsResponse {
 	private TimezoneEntry timezone;
 	private String offset;
 	private Long sessionTypeId;
+	private Integer sessionDurationMinutes;
+	private Integer sessionBufferMinutes;
 	private List<Slot> slots;
 
 	@Getter

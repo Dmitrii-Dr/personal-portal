@@ -242,17 +242,17 @@ public class BookingServiceImpl implements BookingService {
 	@Override
 	@Transactional
 	public BookingResponse update(UUID userId, UpdateBookingRequest request) {
-		Booking entity = bookingRepository.findById(request.getId())
+		Booking bookingToUpdate = bookingRepository.findById(request.getId())
 			.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + request.getId()));
 
 		// Verify the booking belongs to the user
-		if (!entity.getClient().getId().equals(userId)) {
+		if (!bookingToUpdate.getClient().getId().equals(userId)) {
 			throw new IllegalArgumentException("Booking does not belong to user");
 		}
 
 		// Update is allowed only when Status is PENDING_APPROVAL
-		if (entity.getStatus() != BookingStatus.PENDING_APPROVAL) {
-			throw new IllegalArgumentException("Booking can only be updated when status is PENDING_APPROVAL. Current status: " + entity.getStatus());
+		if (bookingToUpdate.getStatus() != BookingStatus.PENDING_APPROVAL) {
+			throw new IllegalArgumentException("Booking can only be updated when status is PENDING_APPROVAL. Current status: " + bookingToUpdate.getStatus());
 		}
 
 		// Validate that new startTime is not in the past
@@ -263,7 +263,7 @@ public class BookingServiceImpl implements BookingService {
 
 		// Validate booking updating interval
 		BookingSettings settings = getBookingSettings();
-		Duration timeUntilBooking = Duration.between(now, entity.getStartTime());
+		Duration timeUntilBooking = Duration.between(now, bookingToUpdate.getStartTime());
 		long minutesUntilBooking = timeUntilBooking.toMinutes();
 		
 		if (minutesUntilBooking < settings.getBookingUpdatingInterval()) {
@@ -272,23 +272,20 @@ public class BookingServiceImpl implements BookingService {
 		}
 
 		// Recalculate endTime based on session duration + buffer (for validation)
-		// Use denormalized session data from booking
 		Instant endTime = request.getStartTime().plusSeconds(
-			(entity.getSessionDurationMinutes() + entity.getSessionBufferMinutes()) * 60L
+			(bookingToUpdate.getSessionDurationMinutes() + bookingToUpdate.getSessionBufferMinutes()) * 60L
 		);
 		Booking saved = null;
 		synchronized (bookingLock) {
 			// Validate booking availability for the new time slot
-			availabilityService.validateBookingAvailability(request.getStartTime(), endTime);
+			availabilityService.validateBookingAvailabilityForUpdate(bookingToUpdate, request.getStartTime(), endTime);
 
-			entity.setStartTime(request.getStartTime());
-			// Set endTime (includes duration only, buffer is for validation purposes)
-			Instant endTimeForEntity = request.getStartTime().plusSeconds(entity.getSessionDurationMinutes() * 60L);
-			entity.setEndTime(endTimeForEntity);
-			entity.setClientMessage(request.getClientMessage());
-			entity.setStatus(BookingStatus.PENDING_APPROVAL);
+			bookingToUpdate.setStartTime(request.getStartTime());
+			bookingToUpdate.setEndTime(endTime);
+			bookingToUpdate.setClientMessage(request.getClientMessage());
+			bookingToUpdate.setStatus(BookingStatus.PENDING_APPROVAL);
 
-			saved = bookingRepository.saveAndFlush(entity);
+			saved = bookingRepository.saveAndFlush(bookingToUpdate);
 		}
 
 		return toResponse(saved);
