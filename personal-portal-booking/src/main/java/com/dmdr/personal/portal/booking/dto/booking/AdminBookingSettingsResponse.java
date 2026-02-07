@@ -14,4 +14,5 @@ public class AdminBookingSettingsResponse {
 	private int bookingUpdatingInterval;
 	private TimezoneEntry defaultTimezone;
 	private String defaultUtcOffset;
+	private boolean roundBookingSuggestions;
 }

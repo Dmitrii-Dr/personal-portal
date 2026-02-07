@@ -194,8 +194,11 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         List<BookingSuggestion> suggestions = new ArrayList<>();
         for (TimeRange availableRange : allAvailableRanges) {
             suggestions
-                    .addAll(generateSlots(availableRange, sessionType.getDurationMinutes(), sessionType.getBufferMinutes(),
-                            context.settings.getBookingSlotsInterval()));
+                    .addAll(generateSlots(
+                                availableRange,
+                                sessionType.getDurationMinutes(),
+                                sessionType.getBufferMinutes(),
+                                context));
         }
 
         return suggestions;
@@ -222,7 +225,9 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         List<BookingSuggestion> suggestions = new ArrayList<>();
         for (TimeRange availableRange : allAvailableRanges) {
             List<BookingSuggestion> slots = generateSlotsForUpdate(
-                    availableRange, bookingToUpdate, context.settings.getBookingSlotsInterval());
+                    availableRange,
+                    bookingToUpdate,
+                    context);
 
             suggestions.addAll(slots);
         }
@@ -480,26 +485,28 @@ public class AvailabilityServiceImpl implements AvailabilityService {
     }
 
     private List<BookingSuggestion> generateSlots(TimeRange range, int sessionDurationMin, int sessionBufferTimeMin,
-                                                  int slotIntervalMinutes) {
+                                                  SuggestionContext context) {
         return generateSlotsInternal(
                 range,
                 sessionDurationMin,
                 sessionBufferTimeMin,
-                slotIntervalMinutes,
-                null);
+                context.settings.getBookingSlotsInterval(),
+                null,
+                context);
     }
 
     private List<BookingSuggestion> generateSlotsForUpdate(
             TimeRange range,
             Booking bookingToUpdate,
-            int slotIntervalMinutes
+            SuggestionContext context
     ) {
         return generateSlotsInternal(
                 range,
                 bookingToUpdate.getSessionDurationMinutes(),
                 bookingToUpdate.getSessionBufferMinutes(),
-                slotIntervalMinutes,
-                bookingToUpdate.getStartTime());
+                context.settings.getBookingSlotsInterval(),
+                bookingToUpdate.getStartTime(),
+                context);
     }
 
     private List<BookingSuggestion> generateSlotsInternal(
@@ -507,11 +514,18 @@ public class AvailabilityServiceImpl implements AvailabilityService {
             int sessionDurationMin,
             int sessionBufferTimeMin,
             int slotIntervalMinutes,
-            Instant skipStartTime) {
+            Instant skipStartTime,
+            SuggestionContext context) {
         List<BookingSuggestion> slots = new ArrayList<>();
         Instant currentStart = range.getStart();
-
         while (true) {
+            if (context.settings.isRoundBookingSuggestions()) {
+                currentStart = roundUpToQuarterHour(currentStart, context.zoneId);
+            }
+            // Check if next slot start would exceed the range
+            if (currentStart.isAfter(range.getEnd()) || currentStart.equals(range.getEnd())) {
+                break;
+            }
             if (skipStartTime != null && currentStart.equals(skipStartTime)) {
                 // Skip current time from suggestion
                 currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
@@ -534,11 +548,6 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
             // Move to next slot start (current start + interval)
             currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
-
-            // Check if next slot start would exceed the range
-            if (currentStart.isAfter(range.getEnd()) || currentStart.equals(range.getEnd())) {
-                break;
-            }
         }
 
         return slots;
@@ -694,6 +703,23 @@ public class AvailabilityServiceImpl implements AvailabilityService {
     private static boolean containsDay(int[] daysOfWeekAsInt, int dayValue) {
         return Arrays.stream(daysOfWeekAsInt)
                 .anyMatch(day -> day == dayValue);
+    }
+
+    private static Instant roundUpToQuarterHour(Instant instant, ZoneId zoneId) {
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
+        int minute = localDateTime.getMinute();
+        int mod = minute % 15;
+        int addMinutes;
+        if (mod == 0 && localDateTime.getSecond() == 0 && localDateTime.getNano() == 0) {
+            addMinutes = 0;
+        } else {
+            addMinutes = 15 - mod;
+        }
+        LocalDateTime rounded = localDateTime
+                .plusMinutes(addMinutes)
+                .withSecond(0)
+                .withNano(0);
+        return rounded.atZone(zoneId).toInstant();
     }
 
     private static class TimeRange {

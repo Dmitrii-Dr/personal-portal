@@ -47,4 +47,7 @@ public class BookingSettings {
 	// UTC offset for default timezone (e.g., "+00:00", "+05:30", "-05:00")
 	@Column(name = "default_utc_offset", nullable = false, length = 10)
 	private String defaultUtcOffset;
+
+	@Column(name = "round_booking_suggestions", nullable = false)
+	private boolean roundBookingSuggestions;
 }

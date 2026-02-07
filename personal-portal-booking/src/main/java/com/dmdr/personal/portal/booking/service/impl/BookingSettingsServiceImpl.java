@@ -45,6 +45,7 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         settings.setBookingFirstSlotInterval(request.getBookingFirstSlotInterval());
         settings.setBookingCancelationInterval(request.getBookingCancelationInterval());
         settings.setBookingUpdatingInterval(request.getBookingUpdatingInterval());
+        settings.setRoundBookingSuggestions(request.isRoundBookingSuggestions());
 
         if (!settings.getDefaultTimezoneId().equals(request.getDefaultTimezoneId())) {
             // Validate that there are no non-ARCHIVED rules or overrides before changing
@@ -69,6 +70,7 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         resp.setBookingUpdatingInterval(settings.getBookingUpdatingInterval());
         resp.setDefaultTimezone(TimezoneEntry.getById(settings.getDefaultTimezoneId()));
         resp.setDefaultUtcOffset(settings.getDefaultUtcOffset());
+        resp.setRoundBookingSuggestions(settings.isRoundBookingSuggestions());
         return resp;
     }
 

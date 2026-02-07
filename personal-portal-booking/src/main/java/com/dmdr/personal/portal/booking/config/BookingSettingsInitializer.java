@@ -28,6 +28,7 @@ public class BookingSettingsInitializer implements ApplicationRunner {
     private static final int DEFAULT_BOOKING_UPDATING_INTERVAL = 60; // 1 hour before session
     private static final Integer DEFAULT_TIMEZONE_ID = 13; // UTC
     private static final String DEFAULT_UTC_OFFSET = "+00:00";
+    private static final boolean DEFAULT_ROUND_BOOKING_SUGGESTIONS = false;
 
     @Override
     @Transactional
@@ -42,6 +43,7 @@ public class BookingSettingsInitializer implements ApplicationRunner {
             defaultSettings.setBookingUpdatingInterval(DEFAULT_BOOKING_UPDATING_INTERVAL);
             defaultSettings.setDefaultTimezoneId(DEFAULT_TIMEZONE_ID);
             defaultSettings.setDefaultUtcOffset(DEFAULT_UTC_OFFSET);
+            defaultSettings.setRoundBookingSuggestions(DEFAULT_ROUND_BOOKING_SUGGESTIONS);
 
             bookingSettingsRepository.save(defaultSettings);
 
