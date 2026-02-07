@@ -14,6 +14,7 @@ import com.dmdr.personal.portal.booking.repository.AvailabilityRuleRepository;
 import com.dmdr.personal.portal.booking.repository.BookingRepository;
 import com.dmdr.personal.portal.booking.repository.BookingSettingsRepository;
 import com.dmdr.personal.portal.booking.service.AvailabilityService;
+
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -25,231 +26,203 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AvailabilityServiceImpl implements AvailabilityService {
 
-	private final AvailabilityRuleRepository repository;
-	private final BookingSettingsRepository bookingSettingsRepository;
-	private final AvailabilityOverrideRepository overrideRepository;
-	private final BookingRepository bookingRepository;
+    private final AvailabilityRuleRepository repository;
+    private final BookingSettingsRepository bookingSettingsRepository;
+    private final AvailabilityOverrideRepository overrideRepository;
+    private final BookingRepository bookingRepository;
 
-	public AvailabilityServiceImpl(
-			AvailabilityRuleRepository repository,
-			BookingSettingsRepository bookingSettingsRepository,
-			AvailabilityOverrideRepository overrideRepository,
-			BookingRepository bookingRepository) {
-		this.repository = repository;
-		this.bookingSettingsRepository = bookingSettingsRepository;
-		this.overrideRepository = overrideRepository;
-		this.bookingRepository = bookingRepository;
-	}
+    public AvailabilityServiceImpl(
+            AvailabilityRuleRepository repository,
+            BookingSettingsRepository bookingSettingsRepository,
+            AvailabilityOverrideRepository overrideRepository,
+            BookingRepository bookingRepository) {
+        this.repository = repository;
+        this.bookingSettingsRepository = bookingSettingsRepository;
+        this.overrideRepository = overrideRepository;
+        this.bookingRepository = bookingRepository;
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public void validateBookingAvailability(Instant requestedStartTime, Instant requestedEndTime) {
-		if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
-			throw new IllegalArgumentException("Requested start time must be before end time");
-		}
+    @Override
+    @Transactional(readOnly = true)
+    public void validateBookingAvailability(Instant requestedStartTime, Instant requestedEndTime) {
+        validateBookingAvailabilityInternal(requestedStartTime, requestedEndTime, null);
+    }
 
-		// Get booking settings first to get the default timezone
-		BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
-		ZoneId zoneId = ZoneId.of(TimezoneEntry.getById(settings.getDefaultTimezoneId()).getGmtOffset());
-		LocalDate requestedDate = requestedStartTime.atZone(zoneId).toLocalDate();
+    @Override
+    @Transactional(readOnly = true)
+    public void validateBookingAvailabilityForUpdate(Booking updatingBooking, Instant requestedStartTime, Instant requestedEndTime) {
+        validateBookingAvailabilityInternal(requestedStartTime, requestedEndTime, updatingBooking);
+    }
 
-		// Calculate day boundaries in the default timezone
-		LocalDateTime startOfDay = requestedDate.atStartOfDay();
-		LocalDateTime endOfDay = requestedDate.atTime(23, 59, 59, 999_999_999);
-		Instant dayStartInstant = startOfDay.atZone(zoneId).toInstant();
-		Instant dayEndInstant = endOfDay.atZone(zoneId).toInstant();
+    private void validateBookingAvailabilityInternal(
+            Instant requestedStartTime,
+            Instant requestedEndTime,
+            Booking updatingBooking) {
+        if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
+            throw new IllegalArgumentException("Requested start time must be before end time");
+        }
 
-		// The case when schedule is empty and the first slot is shown based on BookingFirstSlotInterval
-		// If user select the first next available slot (today, or another day depending on BookingFirstSlotInterval)
-		// Some time past while user submitting the request and validation of minimumStartTime fails
-		// Here we relax minimumStartTime validation and allow 10 minutes delay if it's around defaultMinimumStartTime
-		Instant now = Instant.now();
-		Instant defaultMinimumStartTime = now.plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
+        // Get booking settings first to get the default timezone
+        BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
+        ZoneId zoneId = ZoneId.of(TimezoneEntry.getById(settings.getDefaultTimezoneId()).getGmtOffset());
+        LocalDate requestedDate = requestedStartTime.atZone(zoneId).toLocalDate();
 
-		Instant minimumStartTime = defaultMinimumStartTime;
-		if (requestedStartTime.isAfter(now) && requestedStartTime.isBefore(defaultMinimumStartTime)) {
-			long secondsBeforeDefault = Duration.between(requestedStartTime, defaultMinimumStartTime).getSeconds();
-			//10 minutes relaxation for MinimumStartTime validation
-			if (secondsBeforeDefault > 10 * 60L) {
-				throw new IllegalArgumentException(
-						"Requested start time is too early. " +
-								"Start: " + requestedStartTime +
-								", Minimum allowed: " + defaultMinimumStartTime +
-								", Please try to select a new slot");
-			}
-			minimumStartTime = requestedStartTime;
-		}
+        // Calculate day boundaries in the default timezone
+        LocalDateTime startOfDay = requestedDate.atStartOfDay();
+        LocalDateTime endOfDay = requestedDate.atTime(23, 59, 59, 999_999_999);
+        Instant dayStartInstant = startOfDay.atZone(zoneId).toInstant();
+        Instant dayEndInstant = endOfDay.atZone(zoneId).toInstant();
 
+        // The case when schedule is empty and the first slot is shown based on BookingFirstSlotInterval
+        // If user select the first next available slot (today, or another day depending on BookingFirstSlotInterval)
+        // Some time past while user submitting the request and validation of minimumStartTime fails
+        // Here we relax minimumStartTime validation and allow 10 minutes delay if it's around defaultMinimumStartTime
+        Instant now = Instant.now();
+        Instant defaultMinimumStartTime = now.plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
 
-		// Follow the same logic as calculateBookingSuggestion:
-		// 1. Find matching rules (may be empty, but availability can come from
-		// overrides)
-		// 2. Calculate available time ranges (which includes subtracting unavailable,
-		// adding available overrides, and subtracting booked)
-		List<TimeRange> allAvailableRanges = calculateAvailableTimeRanges(
-				dayStartInstant, dayEndInstant, requestedDate, zoneId, minimumStartTime);
+        Instant minimumStartTime = defaultMinimumStartTime;
+        if (requestedStartTime.isAfter(now) && requestedStartTime.isBefore(defaultMinimumStartTime)) {
+            long secondsBeforeDefault = Duration.between(requestedStartTime, defaultMinimumStartTime).getSeconds();
+            //10 minutes relaxation for MinimumStartTime validation
+            if (secondsBeforeDefault > 10 * 60L) {
+                throw new IllegalArgumentException(
+                        "Requested start time is too early. " +
+                                "Start: " + requestedStartTime +
+                                ", Minimum allowed: " + defaultMinimumStartTime +
+                                ", Please try to select a new slot");
+            }
+            minimumStartTime = requestedStartTime;
+        }
 
-		// Check if requested time range is fully contained in any available range
-		TimeRange requestedRange = new TimeRange(requestedStartTime, requestedEndTime);
-		boolean isAvailable = allAvailableRanges.stream()
-				.anyMatch(availableRange -> {
-					TimeRange overlap = findOverlap(availableRange, requestedRange);
-					// The overlap must exactly match the requested range (fully contained)
-					return overlap != null &&
-							overlap.getStart().equals(requestedStartTime) &&
-							overlap.getEnd().equals(requestedEndTime);
-				});
+        // Follow the same logic as calculateBookingSuggestion:
+        // 1. Find matching rules (may be empty, but availability can come from
+        // overrides)
+        // 2. Calculate available time ranges (which includes subtracting unavailable,
+        // adding available overrides, and subtracting booked)
+        List<TimeRange> allAvailableRanges = updatingBooking == null
+                ? calculateAvailableTimeRanges(
+                dayStartInstant, dayEndInstant, requestedDate, zoneId, minimumStartTime)
+                : calculateAvailableTimeRangesForUpdate(
+                dayStartInstant, dayEndInstant, requestedDate, zoneId, minimumStartTime, updatingBooking);
 
-		if (!isAvailable) {
-			throw new IllegalArgumentException(
-					"Requested time range is not available for booking. " +
-							"Start: " + requestedStartTime + ", End: " + requestedEndTime);
-		}
-	}
+        // Check if requested time range is fully contained in any available range
+        TimeRange requestedRange = new TimeRange(requestedStartTime, requestedEndTime);
+        boolean isAvailable = allAvailableRanges.stream()
+                .anyMatch(availableRange -> {
+                    TimeRange overlap = findOverlap(availableRange, requestedRange);
+                    // The overlap must exactly match the requested range (fully contained)
+                    return overlap != null &&
+                            overlap.getStart().equals(requestedStartTime) &&
+                            overlap.getEnd().equals(requestedEndTime);
+                });
 
-	@Override
-	@Transactional(readOnly = true)
-	public void validateBookingAvailabilityForUpdate(Booking updatingBooking, Instant requestedStartTime, Instant requestedEndTime) {
-		if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
-			throw new IllegalArgumentException("Requested start time must be before end time");
-		}
+        if (!isAvailable) {
+            throw new IllegalArgumentException(
+                    "Requested time range is not available for booking. " +
+                            "Start: " + requestedStartTime + ", End: " + requestedEndTime);
+        }
+    }
 
-		// Get booking settings first to get the default timezone
-		BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
-		ZoneId zoneId = ZoneId.of(TimezoneEntry.getById(settings.getDefaultTimezoneId()).getGmtOffset());
-		LocalDate requestedDate = requestedStartTime.atZone(zoneId).toLocalDate();
+    @Override
+    @Transactional(readOnly = true)
+    public void validateBookingAvailabilityForAdmin(Instant requestedStartTime, Instant requestedEndTime) {
+        if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
+            throw new IllegalArgumentException("Requested start time must be before end time");
+        }
 
-		// Calculate day boundaries in the default timezone
-		LocalDateTime startOfDay = requestedDate.atStartOfDay();
-		LocalDateTime endOfDay = requestedDate.atTime(23, 59, 59, 999_999_999);
-		Instant dayStartInstant = startOfDay.atZone(zoneId).toInstant();
-		Instant dayEndInstant = endOfDay.atZone(zoneId).toInstant();
+        // Check for overlapping bookings with CONFIRMED or PENDING_APPROVAL status
+        // This method does NOT check availability rules or overrides - it assumes
+        // admins can create bookings even when no availability rules exist for that
+        // time
+        List<Booking> overlappingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
+                List.of(BookingStatus.CONFIRMED, BookingStatus.PENDING_APPROVAL),
+                requestedStartTime,
+                requestedEndTime);
 
-		// The case when schedule is empty and the first slot is shown based on BookingFirstSlotInterval
-		// If user select the first next available slot (today, or another day depending on BookingFirstSlotInterval)
-		// Some time past while user submitting the request and validation of minimumStartTime fails
-		// Here we relax minimumStartTime validation and allow 10 minutes delay if it's around defaultMinimumStartTime
-		Instant now = Instant.now();
-		Instant defaultMinimumStartTime = now.plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
+        if (!overlappingBookings.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Requested time range overlaps with existing bookings. " +
+                            "Start: " + requestedStartTime + ", End: " + requestedEndTime);
+        }
+    }
 
-		Instant minimumStartTime = defaultMinimumStartTime;
-		if (requestedStartTime.isAfter(now) && requestedStartTime.isBefore(defaultMinimumStartTime)) {
-			long secondsBeforeDefault = Duration.between(requestedStartTime, defaultMinimumStartTime).getSeconds();
-			//10 minutes relaxation for MinimumStartTime validation
-			if (secondsBeforeDefault > 10 * 60L) {
-				throw new IllegalArgumentException(
-						"Requested start time is too early. " +
-								"Start: " + requestedStartTime +
-								", Minimum allowed: " + defaultMinimumStartTime +
-								", Please try to select a new slot");
-			}
-			minimumStartTime = requestedStartTime;
-		}
+    public void validateBookingAvailabilityForAdminForUpdate(Booking updatingBooking, Instant requestedStartTime, Instant requestedEndTime) {
+        if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
+            throw new IllegalArgumentException("Requested start time must be before end time");
+        }
 
+        // Check for overlapping bookings with CONFIRMED or PENDING_APPROVAL status
+        // This method does NOT check availability rules or overrides - it assumes
+        // admins can create bookings even when no availability rules exist for that
+        // time
+        List<Booking> overlappingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
+                List.of(BookingStatus.CONFIRMED, BookingStatus.PENDING_APPROVAL),
+                requestedStartTime,
+                requestedEndTime);
 
-		// Follow the same logic as calculateBookingSuggestion:
-		// 1. Find matching rules (may be empty, but availability can come from
-		// overrides)
-		// 2. Calculate available time ranges (which includes subtracting unavailable,
-		// adding available overrides, and subtracting booked)
-		List<TimeRange> allAvailableRanges = calculateAvailableTimeRangesForUpdate(
-				dayStartInstant, dayEndInstant, requestedDate, zoneId, minimumStartTime,updatingBooking);
+        if (overlappingBookings.isEmpty()) {
+            return;
+        }
+        if (overlappingBookings.size() > 1 || !overlappingBookings.getFirst().getId().equals(updatingBooking.getId()))
+            throw new IllegalArgumentException(
+                    "Requested time range overlaps with existing bookings: " + overlappingBookings);
+    }
 
-		// Check if requested time range is fully contained in any available range
-		TimeRange requestedRange = new TimeRange(requestedStartTime, requestedEndTime);
-		boolean isAvailable = allAvailableRanges.stream()
-				.anyMatch(availableRange -> {
-					TimeRange overlap = findOverlap(availableRange, requestedRange);
-					// The overlap must exactly match the requested range (fully contained)
-					return overlap != null &&
-							overlap.getStart().equals(requestedStartTime) &&
-							overlap.getEnd().equals(requestedEndTime);
-				});
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingSuggestion> calculateBookingSuggestion(
+            SessionType sessionType,
+            LocalDate suggestedDate,
+            Integer timezoneId) {
+        SuggestionContext context = buildSuggestionContext(suggestedDate, timezoneId);
 
-		if (!isAvailable) {
-			throw new IllegalArgumentException(
-					"Requested time range is not available for booking. " +
-							"Start: " + requestedStartTime + ", End: " + requestedEndTime);
-		}
-	}
+        // Calculate available time ranges
+        List<TimeRange> allAvailableRanges = calculateAvailableTimeRanges(
+                context.dayStartInstant,
+                context.dayEndInstant,
+                suggestedDate,
+                context.zoneId,
+                context.minimumStartTime);
 
-	@Override
-	@Transactional(readOnly = true)
-	public void validateBookingAvailabilityForAdmin(Instant requestedStartTime, Instant requestedEndTime) {
-		if (requestedStartTime.isAfter(requestedEndTime) || requestedStartTime.equals(requestedEndTime)) {
-			throw new IllegalArgumentException("Requested start time must be before end time");
-		}
+        List<BookingSuggestion> suggestions = new ArrayList<>();
+        for (TimeRange availableRange : allAvailableRanges) {
+            suggestions
+                    .addAll(generateSlots(availableRange, sessionType.getDurationMinutes(), sessionType.getBufferMinutes(),
+                            context.settings.getBookingSlotsInterval()));
+        }
 
-		// Check for overlapping bookings with CONFIRMED or PENDING_APPROVAL status
-		// This method does NOT check availability rules or overrides - it assumes
-		// admins can create bookings even when no availability rules exist for that
-		// time
-		List<Booking> overlappingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
-				List.of(BookingStatus.CONFIRMED, BookingStatus.PENDING_APPROVAL),
-				requestedStartTime,
-				requestedEndTime);
-
-		if (!overlappingBookings.isEmpty()) {
-			throw new IllegalArgumentException(
-					"Requested time range overlaps with existing bookings. " +
-							"Start: " + requestedStartTime + ", End: " + requestedEndTime);
-		}
-	}
-
-	@Override
-	@Transactional(readOnly = true)
-	public List<BookingSuggestion> calculateBookingSuggestion(
-			SessionType sessionType,
-			LocalDate suggestedDate,
-			Integer timezoneId) {
-		SuggestionContext context = buildSuggestionContext(suggestedDate, timezoneId);
-
-		// Calculate available time ranges
-		List<TimeRange> allAvailableRanges = calculateAvailableTimeRanges(
-				context.dayStartInstant,
-				context.dayEndInstant,
-				suggestedDate,
-				context.zoneId,
-				context.minimumStartTime);
-
-		List<BookingSuggestion> suggestions = new ArrayList<>();
-		for (TimeRange availableRange : allAvailableRanges) {
-			suggestions
-					.addAll(generateSlots(availableRange, sessionType.getDurationMinutes(), sessionType.getBufferMinutes(),
-							context.settings.getBookingSlotsInterval()));
-		}
-
-		return suggestions;
-	}
+        return suggestions;
+    }
 
     @Override
     @Transactional(readOnly = true)
     public List<BookingSuggestion> calculateBookingSuggestionForUpdate(
-			Booking bookingToUpdate,
+            Booking bookingToUpdate,
             LocalDate suggestedDate,
             Integer timezoneId) {
 
-		SuggestionContext context = buildSuggestionContext(suggestedDate, timezoneId);
+        SuggestionContext context = buildSuggestionContext(suggestedDate, timezoneId);
 
         // Calculate available time ranges
         List<TimeRange> allAvailableRanges = calculateAvailableTimeRangesForUpdate(
-				context.dayStartInstant,
-				context.dayEndInstant,
-				suggestedDate,
-				context.zoneId,
-				context.minimumStartTime,
-				bookingToUpdate);
+                context.dayStartInstant,
+                context.dayEndInstant,
+                suggestedDate,
+                context.zoneId,
+                context.minimumStartTime,
+                bookingToUpdate);
 
         List<BookingSuggestion> suggestions = new ArrayList<>();
         for (TimeRange availableRange : allAvailableRanges) {
-			List<BookingSuggestion> slots = generateSlotsForUpdate(
-					availableRange, bookingToUpdate, context.settings.getBookingSlotsInterval());
+            List<BookingSuggestion> slots = generateSlotsForUpdate(
+                    availableRange, bookingToUpdate, context.settings.getBookingSlotsInterval());
 
             suggestions.addAll(slots);
         }
@@ -257,129 +230,129 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         return suggestions;
     }
 
-	private SuggestionContext buildSuggestionContext(LocalDate suggestedDate, Integer timezoneId) {
-		String timezone = TimezoneEntry.getById(timezoneId).getGmtOffset();
-		ZoneId zoneId = ZoneId.of(timezone);
+    private SuggestionContext buildSuggestionContext(LocalDate suggestedDate, Integer timezoneId) {
+        String timezone = TimezoneEntry.getById(timezoneId).getGmtOffset();
+        ZoneId zoneId = ZoneId.of(timezone);
 
-		// Convert suggestedDate to start and end of day in the given timezone
-		LocalDateTime startOfDay = suggestedDate.atStartOfDay();
-		LocalDateTime endOfDay = suggestedDate.atTime(23, 59, 59, 999_999_999);
+        // Convert suggestedDate to start and end of day in the given timezone
+        LocalDateTime startOfDay = suggestedDate.atStartOfDay();
+        LocalDateTime endOfDay = suggestedDate.atTime(23, 59, 59, 999_999_999);
 
-		Instant dayStartInstant = startOfDay.atZone(zoneId).toInstant();
-		Instant dayEndInstant = endOfDay.atZone(zoneId).toInstant();
+        Instant dayStartInstant = startOfDay.atZone(zoneId).toInstant();
+        Instant dayEndInstant = endOfDay.atZone(zoneId).toInstant();
 
-		// Validate that dayStartInstant is not before the start of the current day
-		LocalDate today = LocalDate.now(zoneId);
-		Instant todayStartInstant = today.atStartOfDay().atZone(zoneId).toInstant();
-		if (dayStartInstant.isBefore(todayStartInstant)) {
-			throw new IllegalArgumentException(
-					"Cannot calculate booking suggestions for a date in the past. " +
-							"Suggested date: " + suggestedDate + " (" + timezone + "), " +
-							"Day start time: " + dayStartInstant.atZone(zoneId) + ", " +
-							"Today start time: " + todayStartInstant.atZone(zoneId));
-		}
+        // Validate that dayStartInstant is not before the start of the current day
+        LocalDate today = LocalDate.now(zoneId);
+        Instant todayStartInstant = today.atStartOfDay().atZone(zoneId).toInstant();
+        if (dayStartInstant.isBefore(todayStartInstant)) {
+            throw new IllegalArgumentException(
+                    "Cannot calculate booking suggestions for a date in the past. " +
+                            "Suggested date: " + suggestedDate + " (" + timezone + "), " +
+                            "Day start time: " + dayStartInstant.atZone(zoneId) + ", " +
+                            "Today start time: " + todayStartInstant.atZone(zoneId));
+        }
 
-		// Get booking settings for slot interval
-		BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
+        // Get booking settings for slot interval
+        BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
 
-		// Calculate minimum start time (now + bookingFirstSlotInterval)
-		// This ensures sessions cannot be booked too soon (e.g., not within 5 minutes,
-		// or not within 2 days)
-		Instant minimumStartTime = Instant.now().plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
+        // Calculate minimum start time (now + bookingFirstSlotInterval)
+        // This ensures sessions cannot be booked too soon (e.g., not within 5 minutes,
+        // or not within 2 days)
+        Instant minimumStartTime = Instant.now().plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
 
-		return new SuggestionContext(
-				zoneId,
-				dayStartInstant,
-				dayEndInstant,
-				settings,
-				minimumStartTime);
-	}
+        return new SuggestionContext(
+                zoneId,
+                dayStartInstant,
+                dayEndInstant,
+                settings,
+                minimumStartTime);
+    }
 
-	private static class SuggestionContext {
-		private final ZoneId zoneId;
-		private final Instant dayStartInstant;
-		private final Instant dayEndInstant;
-		private final BookingSettings settings;
-		private final Instant minimumStartTime;
+    private static class SuggestionContext {
+        private final ZoneId zoneId;
+        private final Instant dayStartInstant;
+        private final Instant dayEndInstant;
+        private final BookingSettings settings;
+        private final Instant minimumStartTime;
 
-		private SuggestionContext(
-				ZoneId zoneId,
-				Instant dayStartInstant,
-				Instant dayEndInstant,
-				BookingSettings settings,
-				Instant minimumStartTime) {
-			this.zoneId = zoneId;
-			this.dayStartInstant = dayStartInstant;
-			this.dayEndInstant = dayEndInstant;
-			this.settings = settings;
-			this.minimumStartTime = minimumStartTime;
-		}
-	}
+        private SuggestionContext(
+                ZoneId zoneId,
+                Instant dayStartInstant,
+                Instant dayEndInstant,
+                BookingSettings settings,
+                Instant minimumStartTime) {
+            this.zoneId = zoneId;
+            this.dayStartInstant = dayStartInstant;
+            this.dayEndInstant = dayEndInstant;
+            this.settings = settings;
+            this.minimumStartTime = minimumStartTime;
+        }
+    }
 
-	/**
-	 * Finds availability rules that match a specific day.
-	 * A rule matches if:
-	 * 1. The rule overlaps with the day
-	 * 2. The day of week matches
-	 */
-	private List<AvailabilityRule> findMatchingRulesForDay(
-			Instant dayStartInstant, Instant dayEndInstant, LocalDate suggestedDate, ZoneId zoneId) {
-		List<AvailabilityRule> activeRules = repository.findByRuleStatus(AvailabilityRule.RuleStatus.ACTIVE);
+    /**
+     * Finds availability rules that match a specific day.
+     * A rule matches if:
+     * 1. The rule overlaps with the day
+     * 2. The day of week matches
+     */
+    private List<AvailabilityRule> findMatchingRulesForDay(
+            Instant dayStartInstant, Instant dayEndInstant, LocalDate suggestedDate, ZoneId zoneId) {
+        List<AvailabilityRule> activeRules = repository.findByRuleStatus(AvailabilityRule.RuleStatus.ACTIVE);
 
-		return activeRules.stream()
-				.filter(rule -> {
-					// Check if rule overlaps with the day
-					// Two intervals overlap if: ruleStart <= dayEnd AND ruleEnd >= dayStart
-					Instant ruleStart = rule.getRuleStartInstant();
-					Instant ruleEnd = rule.getRuleEndInstant();
+        return activeRules.stream()
+                .filter(rule -> {
+                    // Check if rule overlaps with the day
+                    // Two intervals overlap if: ruleStart <= dayEnd AND ruleEnd >= dayStart
+                    Instant ruleStart = rule.getRuleStartInstant();
+                    Instant ruleEnd = rule.getRuleEndInstant();
 
-					boolean ruleOverlapsDay = (ruleStart.isBefore(dayEndInstant) || ruleStart.equals(dayEndInstant))
-							&& (ruleEnd.isAfter(dayStartInstant) || ruleEnd.equals(dayStartInstant));
+                    boolean ruleOverlapsDay = (ruleStart.isBefore(dayEndInstant) || ruleStart.equals(dayEndInstant))
+                            && (ruleEnd.isAfter(dayStartInstant) || ruleEnd.equals(dayStartInstant));
 
-					if (!ruleOverlapsDay) {
-						return false;
-					}
+                    if (!ruleOverlapsDay) {
+                        return false;
+                    }
 
-					// Get day(s) of week in the rule's timezone
-					// The client's day (dayStartInstant to dayEndInstant) may span two different
-					// calendar days in the rule's timezone, so we need to check both
-					ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
+                    // Get day(s) of week in the rule's timezone
+                    // The client's day (dayStartInstant to dayEndInstant) may span two different
+                    // calendar days in the rule's timezone, so we need to check both
+                    ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
 
-					// Get the date at the start of the client's day in the rule's timezone
-					LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
-					// Get the date at the end of the client's day in the rule's timezone
-					LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
+                    // Get the date at the start of the client's day in the rule's timezone
+                    LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
+                    // Get the date at the end of the client's day in the rule's timezone
+                    LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
 
-					// Check if at least one of these days matches the rule's days of week
-					DayOfWeek startDayOfWeek = startDateInRuleTimezone.getDayOfWeek();
-					DayOfWeek endDayOfWeek = endDateInRuleTimezone.getDayOfWeek();
+                    // Check if at least one of these days matches the rule's days of week
+                    DayOfWeek startDayOfWeek = startDateInRuleTimezone.getDayOfWeek();
+                    DayOfWeek endDayOfWeek = endDateInRuleTimezone.getDayOfWeek();
 
-					boolean startDayMatches = containsDay(rule.getDaysOfWeekAsInt(), startDayOfWeek.getValue());
-					boolean endDayMatches = containsDay(rule.getDaysOfWeekAsInt(), endDayOfWeek.getValue());
+                    boolean startDayMatches = containsDay(rule.getDaysOfWeekAsInt(), startDayOfWeek.getValue());
+                    boolean endDayMatches = containsDay(rule.getDaysOfWeekAsInt(), endDayOfWeek.getValue());
 
-					return startDayMatches || endDayMatches;
-				})
-				.collect(Collectors.toList());
-	}
+                    return startDayMatches || endDayMatches;
+                })
+                .collect(Collectors.toList());
+    }
 
-	/**
-	 * Calculates available time ranges for a given day by considering availability
-	 * rules,
-	 * overrides, and existing bookings.
-	 */
-	private List<TimeRange> calculateAvailableTimeRanges(
-			Instant dayStartInstant,
-			Instant dayEndInstant,
-			LocalDate suggestedDate,
-			ZoneId zoneId,
-			Instant minimumStartTime) {
+    /**
+     * Calculates available time ranges for a given day by considering availability
+     * rules,
+     * overrides, and existing bookings.
+     */
+    private List<TimeRange> calculateAvailableTimeRanges(
+            Instant dayStartInstant,
+            Instant dayEndInstant,
+            LocalDate suggestedDate,
+            ZoneId zoneId,
+            Instant minimumStartTime) {
 
-		List<TimeRange> allAvailableRanges =
-				calculateAvailableTimeRangesByRulesAndOverrides(
+        List<TimeRange> allAvailableRanges =
+                calculateAvailableTimeRangesByRulesAndOverrides(
                         dayStartInstant, dayEndInstant, suggestedDate,
-						zoneId,minimumStartTime);
+                        zoneId, minimumStartTime);
 
-		// Subtract booked time ranges from all available ranges
+        // Subtract booked time ranges from all available ranges
         List<Booking> existingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
                 List.of(BookingStatus.PENDING_APPROVAL, BookingStatus.CONFIRMED),
                 dayStartInstant,
@@ -387,8 +360,8 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
         allAvailableRanges = subtractBookedRangesFromAll(allAvailableRanges, existingBookings);
 
-		return allAvailableRanges;
-	}
+        return allAvailableRanges;
+    }
 
     private List<TimeRange> calculateAvailableTimeRangesForUpdate(
             Instant dayStartInstant,
@@ -401,14 +374,14 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         List<TimeRange> allAvailableRanges =
                 calculateAvailableTimeRangesByRulesAndOverrides(
                         dayStartInstant, dayEndInstant, suggestedDate,
-                        zoneId,minimumStartTime);
+                        zoneId, minimumStartTime);
 
         // Get current booking excluding updating one - current booking time should not be substructed from available time
         // As if this booking was canceled and recreated.
         List<Booking> existingBookingsExcludeUpdatingItem = bookingRepository.findBookingsByStatusAndTimeRange(
-                List.of(BookingStatus.PENDING_APPROVAL, BookingStatus.CONFIRMED),
-                dayStartInstant,
-                dayEndInstant).stream()
+                        List.of(BookingStatus.PENDING_APPROVAL, BookingStatus.CONFIRMED),
+                        dayStartInstant,
+                        dayEndInstant).stream()
                 .filter(booking -> !booking.getId().equals(bookingToUpdate.getId())).
                 collect(Collectors.toList());
 
@@ -418,336 +391,326 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         return allAvailableRanges;
     }
 
-	private List<TimeRange> calculateAvailableTimeRangesByRulesAndOverrides(
-			Instant dayStartInstant,
-			Instant dayEndInstant,
-			LocalDate suggestedDate,
-			ZoneId zoneId,
-			Instant minimumStartTime) {
-		// Find rules that match the day
-		List<AvailabilityRule> matchingRules = findMatchingRulesForDay(
-				dayStartInstant, dayEndInstant, suggestedDate, zoneId);
+    private List<TimeRange> calculateAvailableTimeRangesByRulesAndOverrides(
+            Instant dayStartInstant,
+            Instant dayEndInstant,
+            LocalDate suggestedDate,
+            ZoneId zoneId,
+            Instant minimumStartTime) {
+        // Find rules that match the day
+        List<AvailabilityRule> matchingRules = findMatchingRulesForDay(
+                dayStartInstant, dayEndInstant, suggestedDate, zoneId);
 
-		// Get unavailable overrides that reduce availability
-		List<AvailabilityOverride> unavailableOverrides = overrideRepository.findOverlappingUnavailableOverrides(
-				dayStartInstant, dayEndInstant, OverrideStatus.ACTIVE);
+        // Get unavailable overrides that reduce availability
+        List<AvailabilityOverride> unavailableOverrides = overrideRepository.findOverlappingUnavailableOverrides(
+                dayStartInstant, dayEndInstant, OverrideStatus.ACTIVE);
 
-		// Collect working hours from all matching rules and find overlap with client's
-		// day
-		// Note: Different rules' working hours don't overlap, so we process each
-		// separately
-		List<TimeRange> ruleRanges = new ArrayList<>();
-		for (AvailabilityRule rule : matchingRules) {
-			ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
-			LocalTime availableStart = rule.getAvailableStartTime();
-			LocalTime availableEnd = rule.getAvailableEndTime();
+        // Collect working hours from all matching rules and find overlap with client's
+        // day
+        // Note: Different rules' working hours don't overlap, so we process each
+        // separately
+        List<TimeRange> ruleRanges = new ArrayList<>();
+        for (AvailabilityRule rule : matchingRules) {
+            ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
+            LocalTime availableStart = rule.getAvailableStartTime();
+            LocalTime availableEnd = rule.getAvailableEndTime();
 
-			// The client's day range may span multiple calendar days in the rule's timezone
-			// We need to check each calendar day in the rule's timezone that overlaps with
-			// the client's day
-			LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
-			LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
+            // The client's day range may span multiple calendar days in the rule's timezone
+            // We need to check each calendar day in the rule's timezone that overlaps with
+            // the client's day
+            LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
+            LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
 
-			// Iterate through each calendar day in the rule's timezone that the client's
-			// day spans
-			LocalDate candidateDate = startDateInRuleTimezone;
-			while (!candidateDate.isAfter(endDateInRuleTimezone)) {
-				// Check if this day of the week is in the rule's working days
-				DayOfWeek dayOfWeek = candidateDate.getDayOfWeek();
-				if (containsDay(rule.getDaysOfWeekAsInt(), dayOfWeek.getValue())) {
-					// Calculate working hours for this specific day in the rule's timezone
-					LocalDateTime candidateStartDateTime = candidateDate.atTime(availableStart);
-					LocalDateTime candidateEndDateTime = candidateDate.atTime(availableEnd);
-					Instant candidateStartInstant = candidateStartDateTime.atZone(ruleZoneId).toInstant();
-					Instant candidateEndInstant = candidateEndDateTime.atZone(ruleZoneId).toInstant();
+            // Iterate through each calendar day in the rule's timezone that the client's
+            // day spans
+            LocalDate candidateDate = startDateInRuleTimezone;
+            while (!candidateDate.isAfter(endDateInRuleTimezone)) {
+                // Check if this day of the week is in the rule's working days
+                DayOfWeek dayOfWeek = candidateDate.getDayOfWeek();
+                if (containsDay(rule.getDaysOfWeekAsInt(), dayOfWeek.getValue())) {
+                    // Calculate working hours for this specific day in the rule's timezone
+                    LocalDateTime candidateStartDateTime = candidateDate.atTime(availableStart);
+                    LocalDateTime candidateEndDateTime = candidateDate.atTime(availableEnd);
+                    Instant candidateStartInstant = candidateStartDateTime.atZone(ruleZoneId).toInstant();
+                    Instant candidateEndInstant = candidateEndDateTime.atZone(ruleZoneId).toInstant();
 
-					if(candidateStartInstant.isAfter(rule.getRuleEndInstant())){
-						//the case when rule overlaps day, but ends before start time in this day
-						break;
-					}
+                    if (candidateStartInstant.isAfter(rule.getRuleEndInstant())) {
+                        //the case when rule overlaps day, but ends before start time in this day
+                        break;
+                    }
 
-					// Find overlap between client's day and this day's working hours
-					TimeRange ruleOverlap = findFutureOverlap(
-							new TimeRange(dayStartInstant, dayEndInstant),
-							new TimeRange(candidateStartInstant, candidateEndInstant),
-							minimumStartTime);
+                    // Find overlap between client's day and this day's working hours
+                    TimeRange ruleOverlap = findFutureOverlap(
+                            new TimeRange(dayStartInstant, dayEndInstant),
+                            new TimeRange(candidateStartInstant, candidateEndInstant),
+                            minimumStartTime);
 
-					if (ruleOverlap != null) {
-						ruleRanges.add(ruleOverlap);
-					}
-				}
+                    if (ruleOverlap != null) {
+                        ruleRanges.add(ruleOverlap);
+                    }
+                }
 
-				// Move to the next day in the rule's timezone
-				candidateDate = candidateDate.plusDays(1);
-			}
-		}
+                // Move to the next day in the rule's timezone
+                candidateDate = candidateDate.plusDays(1);
+            }
+        }
 
-		// Subtract unavailable override ranges from rule ranges
-		List<TimeRange> allAvailableRanges = subtractUnavailableRangesFromAll(ruleRanges, unavailableOverrides);
+        // Subtract unavailable override ranges from rule ranges
+        List<TimeRange> allAvailableRanges = subtractUnavailableRangesFromAll(ruleRanges, unavailableOverrides);
 
-		// Always check for availability overrides with isAvailable = true
-		// These overrides extend availability beyond normal rules
-		List<AvailabilityOverride> availableOverrides = overrideRepository.findOverlappingAvailableOverrides(
-				dayStartInstant, dayEndInstant, OverrideStatus.ACTIVE);
+        // Always check for availability overrides with isAvailable = true
+        // These overrides extend availability beyond normal rules
+        List<AvailabilityOverride> availableOverrides = overrideRepository.findOverlappingAvailableOverrides(
+                dayStartInstant, dayEndInstant, OverrideStatus.ACTIVE);
 
-		for (AvailabilityOverride override : availableOverrides) {
-			// Calculate overlap between override and client's day (filter past intervals if
-			// today)
-			TimeRange overrideOverlap = findFutureOverlap(
-					new TimeRange(dayStartInstant, dayEndInstant),
-					new TimeRange(override.getOverideStartInstant(), override.getOverrideEndInstant()),
-					minimumStartTime);
+        for (AvailabilityOverride override : availableOverrides) {
+            // Calculate overlap between override and client's day (filter past intervals if
+            // today)
+            TimeRange overrideOverlap = findFutureOverlap(
+                    new TimeRange(dayStartInstant, dayEndInstant),
+                    new TimeRange(override.getOverideStartInstant(), override.getOverrideEndInstant()),
+                    minimumStartTime);
 
-			if (overrideOverlap != null) {
-				allAvailableRanges.add(overrideOverlap);
-			}
-		}
+            if (overrideOverlap != null) {
+                allAvailableRanges.add(overrideOverlap);
+            }
+        }
 
-		return allAvailableRanges;
-	}
+        return allAvailableRanges;
+    }
 
-	private List<BookingSuggestion> generateSlots(TimeRange range, int sessionDurationMin, int sessionBufferTimeMin,
-			int slotIntervalMinutes) {
+    private List<BookingSuggestion> generateSlots(TimeRange range, int sessionDurationMin, int sessionBufferTimeMin,
+                                                  int slotIntervalMinutes) {
+        return generateSlotsInternal(
+                range,
+                sessionDurationMin,
+                sessionBufferTimeMin,
+                slotIntervalMinutes,
+                null);
+    }
 
-		List<BookingSuggestion> slots = new ArrayList<>();
-		Instant currentStart = range.getStart();
+    private List<BookingSuggestion> generateSlotsForUpdate(
+            TimeRange range,
+            Booking bookingToUpdate,
+            int slotIntervalMinutes
+    ) {
+        return generateSlotsInternal(
+                range,
+                bookingToUpdate.getSessionDurationMinutes(),
+                bookingToUpdate.getSessionBufferMinutes(),
+                slotIntervalMinutes,
+                bookingToUpdate.getStartTime());
+    }
 
-		while (true) {
+    private List<BookingSuggestion> generateSlotsInternal(
+            TimeRange range,
+            int sessionDurationMin,
+            int sessionBufferTimeMin,
+            int slotIntervalMinutes,
+            Instant skipStartTime) {
+        List<BookingSuggestion> slots = new ArrayList<>();
+        Instant currentStart = range.getStart();
 
-			Instant slotEnd = currentStart.plusSeconds(sessionDurationMin* 60L);
-			Instant slotWithBufferEnd = slotEnd.plusSeconds(sessionBufferTimeMin * 60L);
+        while (true) {
+            if (skipStartTime != null && currentStart.equals(skipStartTime)) {
+                // Skip current time from suggestion
+                currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
+                continue;
+            }
 
-			// Check if slot end exceeds the range end
-			if (slotWithBufferEnd.isAfter(range.getEnd())) {
-				break;
-			}
+            Instant slotEnd = currentStart.plusSeconds(sessionDurationMin * 60L);
+            Instant slotWithBufferEnd = slotEnd.plusSeconds(sessionBufferTimeMin * 60L);
 
-			BookingSuggestion suggestion = new BookingSuggestion();
-			suggestion.setStartTime(currentStart);
-			suggestion.setEndTime(slotEnd);
-			suggestion.setStartTimeInstant(currentStart);
-			slots.add(suggestion);
+            // Check if slot end exceeds the range end
+            if (slotWithBufferEnd.isAfter(range.getEnd())) {
+                break;
+            }
 
-			// Move to next slot start (current start + interval)
-			currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
+            BookingSuggestion suggestion = new BookingSuggestion();
+            suggestion.setStartTime(currentStart);
+            suggestion.setEndTime(slotEnd);
+            suggestion.setStartTimeInstant(currentStart);
+            slots.add(suggestion);
 
-			// Check if next slot start would exceed the range
-			if (currentStart.isAfter(range.getEnd()) || currentStart.equals(range.getEnd())) {
-				break;
-			}
-		}
+            // Move to next slot start (current start + interval)
+            currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
 
-		return slots;
-	}
+            // Check if next slot start would exceed the range
+            if (currentStart.isAfter(range.getEnd()) || currentStart.equals(range.getEnd())) {
+                break;
+            }
+        }
 
-	private List<BookingSuggestion> generateSlotsForUpdate(
-			TimeRange range,
-			Booking bookingToUpdate,
-			int slotIntervalMinutes
-	) {
-		List<BookingSuggestion> slots = new ArrayList<>();
-		Instant currentStart = range.getStart();
+        return slots;
+    }
 
-		while (true) {
-			if(currentStart.equals(bookingToUpdate.getStartTime())) {
-				//Skip current time from suggestion
-				currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
-				continue;
-			}
+    private TimeRange findOverlap(TimeRange range1, TimeRange range2) {
+        Instant overlapStart = range1.getStart().isAfter(range2.getStart()) ? range1.getStart() : range2.getStart();
+        Instant overlapEnd = range1.getEnd().isBefore(range2.getEnd()) ? range1.getEnd() : range2.getEnd();
 
-			Instant slotEnd = currentStart.plusSeconds(bookingToUpdate.getSessionDurationMinutes()* 60L);
-			Instant slotWithBufferEnd = slotEnd.plusSeconds(bookingToUpdate.getSessionBufferMinutes() * 60L);
+        // Check if there's actually an overlap (overlapStart must be before overlapEnd)
+        boolean hasOverlap = overlapStart.isBefore(overlapEnd);
+        if (!hasOverlap) {
+            return null;
+        }
 
-			// Check if slot end exceeds the range end
-			if (slotWithBufferEnd.isAfter(range.getEnd())) {
-				break;
-			}
+        return new TimeRange(overlapStart, overlapEnd);
+    }
 
-			BookingSuggestion suggestion = new BookingSuggestion();
-			suggestion.setStartTime(currentStart);
-			suggestion.setEndTime(slotEnd);
-			suggestion.setStartTimeInstant(currentStart);
-			slots.add(suggestion);
+    private TimeRange findFutureOverlap(TimeRange range1, TimeRange range2, Instant minimumStartTime) {
+        Instant overlapStart = range1.getStart().isAfter(range2.getStart()) ? range1.getStart() : range2.getStart();
+        Instant overlapEnd = range1.getEnd().isBefore(range2.getEnd()) ? range1.getEnd() : range2.getEnd();
 
-			// Move to next slot start (current start + interval)
-			currentStart = currentStart.plusSeconds(slotIntervalMinutes * 60L);
+        // Check if there's actually an overlap (overlapStart must be before overlapEnd)
+        boolean hasOverlap = overlapStart.isBefore(overlapEnd);
+        if (!hasOverlap) {
+            return null;
+        }
 
-			// Check if next slot start would exceed the range
-			if (currentStart.isAfter(range.getEnd()) || currentStart.equals(range.getEnd())) {
-				break;
-			}
-		}
+        // If minimumStartTime is provided (for today's bookings), ensure overlap starts
+        // after it
+        if (minimumStartTime != null) {
+            if (overlapStart.isBefore(minimumStartTime)) {
+                // Adjust overlap start to minimumStartTime if it starts earlier
+                overlapStart = minimumStartTime;
+                // Check if there's still valid overlap after adjustment
+                if (!overlapStart.isBefore(overlapEnd)) {
+                    return null;
+                }
+            }
+        } else {
+            // For future dates, ensure overlap doesn't start in the past
+            Instant now = Instant.now();
+            if (overlapStart.isBefore(now) || overlapStart.equals(now)) {
+                return null;
+            }
+        }
 
-		return slots;
-	}
+        return new TimeRange(overlapStart, overlapEnd);
+    }
 
-	private TimeRange findOverlap(TimeRange range1, TimeRange range2) {
-		Instant overlapStart = range1.getStart().isAfter(range2.getStart()) ? range1.getStart() : range2.getStart();
-		Instant overlapEnd = range1.getEnd().isBefore(range2.getEnd()) ? range1.getEnd() : range2.getEnd();
-
-		// Check if there's actually an overlap (overlapStart must be before overlapEnd)
-		boolean hasOverlap = overlapStart.isBefore(overlapEnd);
-		if (!hasOverlap) {
-			return null;
-		}
-
-		return new TimeRange(overlapStart, overlapEnd);
-	}
-
-	private TimeRange findFutureOverlap(TimeRange range1, TimeRange range2, Instant minimumStartTime) {
-		Instant overlapStart = range1.getStart().isAfter(range2.getStart()) ? range1.getStart() : range2.getStart();
-		Instant overlapEnd = range1.getEnd().isBefore(range2.getEnd()) ? range1.getEnd() : range2.getEnd();
-
-		// Check if there's actually an overlap (overlapStart must be before overlapEnd)
-		boolean hasOverlap = overlapStart.isBefore(overlapEnd);
-		if (!hasOverlap) {
-			return null;
-		}
-
-		// If minimumStartTime is provided (for today's bookings), ensure overlap starts
-		// after it
-		if (minimumStartTime != null) {
-			if (overlapStart.isBefore(minimumStartTime)) {
-				// Adjust overlap start to minimumStartTime if it starts earlier
-				overlapStart = minimumStartTime;
-				// Check if there's still valid overlap after adjustment
-				if (!overlapStart.isBefore(overlapEnd)) {
-					return null;
-				}
-			}
-		} else {
-			// For future dates, ensure overlap doesn't start in the past
-			Instant now = Instant.now();
-			if (overlapStart.isBefore(now) || overlapStart.equals(now)) {
-				return null;
-			}
-		}
-
-		return new TimeRange(overlapStart, overlapEnd);
-	}
-
-	/**
-	 * Subtracts booked time ranges from all available time ranges.
-	 * Returns a list of remaining available time ranges after excluding booked
-	 * periods.
-	 */
-	private List<TimeRange> subtractBookedRangesFromAll(
-			List<TimeRange> availableRanges,
+    /**
+     * Subtracts booked time ranges from all available time ranges.
+     * Returns a list of remaining available time ranges after excluding booked
+     * periods.
+     */
+    private List<TimeRange> subtractBookedRangesFromAll(
+            List<TimeRange> availableRanges,
             List<Booking> bookingsToSubtract) {
 
-		if (bookingsToSubtract.isEmpty()) {
-			return availableRanges;
-		}
+        if (bookingsToSubtract.isEmpty()) {
+            return availableRanges;
+        }
 
-		// Subtract booked time ranges from all available ranges
-		List<TimeRange> bookedRanges = bookingsToSubtract.stream()
-				.map(booking -> new TimeRange(booking.getStartTime(), booking.getEndTime()))
-				.collect(Collectors.toList());
+        // Subtract booked time ranges from all available ranges
+        List<TimeRange> bookedRanges = bookingsToSubtract.stream()
+                .map(booking -> new TimeRange(booking.getStartTime(), booking.getEndTime()))
+                .collect(Collectors.toList());
 
-		List<TimeRange> result = new ArrayList<>(availableRanges);
+        List<TimeRange> result = new ArrayList<>(availableRanges);
 
-		// Apply each booked range to all current available ranges
-		for (TimeRange bookedRange : bookedRanges) {
-			List<TimeRange> newResult = new ArrayList<>();
-			for (TimeRange currentRange : result) {
-				// Subtract booked range from current range
-				List<TimeRange> remaining = subtractRange(currentRange, bookedRange);
-				newResult.addAll(remaining);
-			}
-			result = newResult;
-		}
+        // Apply each booked range to all current available ranges
+        for (TimeRange bookedRange : bookedRanges) {
+            List<TimeRange> newResult = new ArrayList<>();
+            for (TimeRange currentRange : result) {
+                // Subtract booked range from current range
+                List<TimeRange> remaining = subtractRange(currentRange, bookedRange);
+                newResult.addAll(remaining);
+            }
+            result = newResult;
+        }
 
-		return result;
-	}
+        return result;
+    }
 
-	/**
-	 * Subtracts unavailable override ranges from all available time ranges.
-	 * Returns a list of remaining available time ranges after excluding unavailable
-	 * periods.
-	 */
-	private List<TimeRange> subtractUnavailableRangesFromAll(
-			List<TimeRange> availableRanges,
-			List<AvailabilityOverride> unavailableOverrides) {
-		if (unavailableOverrides.isEmpty()) {
-			return availableRanges;
-		}
+    /**
+     * Subtracts unavailable override ranges from all available time ranges.
+     * Returns a list of remaining available time ranges after excluding unavailable
+     * periods.
+     */
+    private List<TimeRange> subtractUnavailableRangesFromAll(
+            List<TimeRange> availableRanges,
+            List<AvailabilityOverride> unavailableOverrides) {
+        if (unavailableOverrides.isEmpty()) {
+            return availableRanges;
+        }
 
-		List<TimeRange> unavailableRanges = unavailableOverrides.stream()
-				.map(override -> new TimeRange(
-						override.getOverideStartInstant(),
-						override.getOverrideEndInstant()))
-				.collect(Collectors.toList());
+        List<TimeRange> unavailableRanges = unavailableOverrides.stream()
+                .map(override -> new TimeRange(
+                        override.getOverideStartInstant(),
+                        override.getOverrideEndInstant()))
+                .collect(Collectors.toList());
 
-		List<TimeRange> result = new ArrayList<>(availableRanges);
+        List<TimeRange> result = new ArrayList<>(availableRanges);
 
-		// Apply each unavailable range to all current available ranges
-		for (TimeRange unavailableRange : unavailableRanges) {
-			List<TimeRange> newResult = new ArrayList<>();
-			for (TimeRange currentRange : result) {
-				// Subtract unavailable range from current range
-				List<TimeRange> remaining = subtractRange(currentRange, unavailableRange);
-				newResult.addAll(remaining);
-			}
-			result = newResult;
-		}
+        // Apply each unavailable range to all current available ranges
+        for (TimeRange unavailableRange : unavailableRanges) {
+            List<TimeRange> newResult = new ArrayList<>();
+            for (TimeRange currentRange : result) {
+                // Subtract unavailable range from current range
+                List<TimeRange> remaining = subtractRange(currentRange, unavailableRange);
+                newResult.addAll(remaining);
+            }
+            result = newResult;
+        }
 
-		return result;
-	}
+        return result;
+    }
 
-	/**
-	 * Subtracts a range from another range, returning the remaining parts.
-	 * Can return 0, 1, or 2 ranges depending on how the ranges overlap.
-	 */
-	private List<TimeRange> subtractRange(TimeRange original, TimeRange toSubtract) {
-		List<TimeRange> result = new ArrayList<>();
+    /**
+     * Subtracts a range from another range, returning the remaining parts.
+     * Can return 0, 1, or 2 ranges depending on how the ranges overlap.
+     */
+    private List<TimeRange> subtractRange(TimeRange original, TimeRange toSubtract) {
+        List<TimeRange> result = new ArrayList<>();
 
-		// Check if ranges overlap (no minimum start time restriction for subtraction)
-		TimeRange overlap = findOverlap(original, toSubtract);
-		if (overlap == null) {
-			// No overlap, return original range
-			result.add(original);
-			return result;
-		}
+        // Check if ranges overlap (no minimum start time restriction for subtraction)
+        TimeRange overlap = findOverlap(original, toSubtract);
+        if (overlap == null) {
+            // No overlap, return original range
+            result.add(original);
+            return result;
+        }
 
-		// If overlap completely covers original (overlap equals original), return empty
-		// list
-		if (overlap.getStart().equals(original.getStart()) && overlap.getEnd().equals(original.getEnd())) {
-			return result;
-		}
+        // If overlap completely covers original (overlap equals original), return empty
+        // list
+        if (overlap.getStart().equals(original.getStart()) && overlap.getEnd().equals(original.getEnd())) {
+            return result;
+        }
 
-		// Check if there's a part before the overlap
-		if (original.getStart().isBefore(overlap.getStart())) {
-			result.add(new TimeRange(original.getStart(), overlap.getStart()));
-		}
+        // Check if there's a part before the overlap
+        if (original.getStart().isBefore(overlap.getStart())) {
+            result.add(new TimeRange(original.getStart(), overlap.getStart()));
+        }
 
-		// Check if there's a part after the overlap
-		if (original.getEnd().isAfter(overlap.getEnd())) {
-			result.add(new TimeRange(overlap.getEnd(), original.getEnd()));
-		}
+        // Check if there's a part after the overlap
+        if (original.getEnd().isAfter(overlap.getEnd())) {
+            result.add(new TimeRange(overlap.getEnd(), original.getEnd()));
+        }
 
-		return result;
-	}
+        return result;
+    }
 
-	private static boolean containsDay(int[] daysOfWeekAsInt, int dayValue) {
-		return Arrays.stream(daysOfWeekAsInt)
-				.anyMatch(day -> day == dayValue);
-	}
+    private static boolean containsDay(int[] daysOfWeekAsInt, int dayValue) {
+        return Arrays.stream(daysOfWeekAsInt)
+                .anyMatch(day -> day == dayValue);
+    }
 
-	private static class TimeRange {
-		private final Instant start;
-		private final Instant end;
+    private static class TimeRange {
+        private final Instant start;
+        private final Instant end;
 
-		TimeRange(Instant start, Instant end) {
-			this.start = start;
-			this.end = end;
-		}
+        TimeRange(Instant start, Instant end) {
+            this.start = start;
+            this.end = end;
+        }
 
-		Instant getStart() {
-			return start;
-		}
+        Instant getStart() {
+            return start;
+        }
 
-		Instant getEnd() {
-			return end;
-		}
-	}
+        Instant getEnd() {
+            return end;
+        }
+    }
 }

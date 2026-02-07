@@ -14,6 +14,7 @@ public interface AvailabilityService {
     void validateBookingAvailabilityForUpdate(Booking updatingBooking, Instant requestedStartTime, Instant requestedEndTime);
 
     void validateBookingAvailabilityForAdmin(Instant startTime, Instant endTime);
+    void validateBookingAvailabilityForAdminForUpdate(Booking updatingBooking, Instant startTime, Instant endTime);
 
     List<BookingSuggestion> calculateBookingSuggestion(SessionType sessionType, LocalDate suggestedDate,
                                                        Integer timezoneId);
