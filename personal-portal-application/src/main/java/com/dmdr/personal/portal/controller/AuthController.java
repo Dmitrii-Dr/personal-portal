@@ -9,17 +9,24 @@ import com.dmdr.personal.portal.users.dto.ResetPasswordRequest;
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.PasswordResetService;
+import com.dmdr.personal.portal.users.service.RefreshTokenService;
 import com.dmdr.personal.portal.users.service.UserService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -27,14 +34,22 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AuthController {
 
+    private static final String REFRESH_COOKIE_NAME = "refresh_token";
+    private static final String REFRESH_COOKIE_PATH = "/api/v1/auth/refresh";
+
     private final UserService userService;
     private final JwtService jwtService;
     private final PasswordResetService passwordResetService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthController(UserService userService, JwtService jwtService, PasswordResetService passwordResetService) {
+    public AuthController(UserService userService,
+            JwtService jwtService,
+            PasswordResetService passwordResetService,
+            RefreshTokenService refreshTokenService) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.passwordResetService = passwordResetService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @PostMapping("/login")
@@ -50,7 +65,8 @@ public class AuthController {
                 .map(Role::getName)
                 .collect(Collectors.toSet());
 
-        String token = jwtService.generateToken(user.getEmail(), roles);
+        RefreshTokenService.RefreshTokenIssueResult refreshResult = refreshTokenService.issueRefreshToken(user);
+        String token = jwtService.generateToken(user.getId(), roles, refreshResult.sessionId());
 
         AuthResponse response = new AuthResponse();
         response.setToken(token);
@@ -58,7 +74,9 @@ public class AuthController {
         response.setRoles(roles);
 
         log.info("User logged in successfully: {}", user.getEmail());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(refreshResult.refreshToken(), refreshResult.expiresAtAbsolute()).toString())
+                .body(response);
     }
 
     @PostMapping("/registry")
@@ -75,7 +93,8 @@ public class AuthController {
                 .map(Role::getName)
                 .collect(Collectors.toSet());
 
-        String token = jwtService.generateToken(user.getEmail(), roles);
+        RefreshTokenService.RefreshTokenIssueResult refreshResult = refreshTokenService.issueRefreshToken(user);
+        String token = jwtService.generateToken(user.getId(), roles, refreshResult.sessionId());
 
         AuthResponse response = new AuthResponse();
         response.setToken(token);
@@ -83,7 +102,48 @@ public class AuthController {
         response.setRoles(roles);
 
         log.info("User registered successfully: {}", user.getEmail());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(refreshResult.refreshToken(), refreshResult.expiresAtAbsolute()).toString())
+                .body(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            RefreshTokenService.RefreshTokenRotationResult rotation = refreshTokenService.rotateRefreshToken(refreshToken);
+            UUID userId = rotation.userId();
+            User user = userService.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+            Set<String> roles = user.getRoles().stream()
+                    .map(Role::getName)
+                    .collect(Collectors.toSet());
+
+            String token = jwtService.generateToken(user.getId(), roles, rotation.sessionId());
+
+            AuthResponse response = new AuthResponse();
+            response.setToken(token);
+            response.setEmail(user.getEmail());
+            response.setRoles(roles);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(rotation.refreshToken(), rotation.expiresAtAbsolute()).toString())
+                    .body(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken) {
+        refreshTokenService.revokeRefreshToken(refreshToken);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
+                .build();
     }
 
     @PostMapping("/forgot-password")
@@ -97,5 +157,27 @@ public class AuthController {
         passwordResetService.resetPassword(request.getToken(), request.getEmail(), request.getNewPassword());
         return ResponseEntity.ok("Password successfully reset.");
     }
-}
 
+    private ResponseCookie buildRefreshCookie(String refreshToken, OffsetDateTime expiresAtAbsolute) {
+        Duration maxAge = Duration.between(OffsetDateTime.now(), expiresAtAbsolute);
+        long maxAgeSeconds = Math.max(0L, maxAge.getSeconds());
+
+        return ResponseCookie.from(REFRESH_COOKIE_NAME, refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path(REFRESH_COOKIE_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    private ResponseCookie clearRefreshCookie() {
+        return ResponseCookie.from(REFRESH_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path(REFRESH_COOKIE_PATH)
+                .maxAge(0)
+                .build();
+    }
+}

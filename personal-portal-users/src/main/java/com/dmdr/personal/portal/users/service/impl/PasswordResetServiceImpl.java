@@ -5,6 +5,7 @@ import com.dmdr.personal.portal.users.model.PasswordResetToken;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.PasswordResetTokenRepository;
 import com.dmdr.personal.portal.users.service.PasswordResetService;
+import com.dmdr.personal.portal.users.service.RefreshTokenService;
 import com.dmdr.personal.portal.users.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,15 +26,18 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final EmailService emailService;
     private final String frontendUrl;
+    private final RefreshTokenService refreshTokenService;
 
     public PasswordResetServiceImpl(
             UserService userService,
             PasswordResetTokenRepository tokenRepository,
             EmailService emailService,
+            RefreshTokenService refreshTokenService,
             @Value("${app.frontend.url}") String frontendUrl) {
         this.userService = userService;
         this.tokenRepository = tokenRepository;
         this.emailService = emailService;
+        this.refreshTokenService = refreshTokenService;
         this.frontendUrl = frontendUrl;
     }
 
@@ -103,10 +107,12 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         // Update password (this also sets lastPasswordResetDate)
         userService.updatePassword(user.getId(), newPassword);
 
+        // Revoke all refresh tokens and sessions
+        refreshTokenService.revokeAllSessions(user.getId());
+
         // Clean up token (Important!)
         tokenRepository.delete(resetToken);
 
         log.info("Password successfully reset for user: {}", user.getEmail());
     }
 }
-
