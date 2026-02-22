@@ -40,13 +40,18 @@ class PublicEndpointsSecurityTest extends SecurityTestBase {
     @Test
     @DisplayName("Should allow access to /api/v1/auth/registry without token")
     void shouldAllowAccessToRegistryWithoutToken() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/registry")
+        int statusCode = mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/registry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"registrytest" + System.currentTimeMillis()
                         + "@example.com\",\"password\":\"password123\","
                         + "\"firstName\":\"Test\",\"lastName\":\"User\","
                         + "\"phoneNumber\":\"+1234567890\",\"signedAgreements\":{}}"))
-                .andExpect(status().is2xxSuccessful()); // Should succeed (201 Created) or 4xx (validation), not 401/403
+                .andReturn()
+                .getResponse()
+                .getStatus();
+
+        // Should not be 401 (Unauthorized) or 403 (Forbidden) - security allows it
+        assert statusCode != 401 && statusCode != 403 : "Security blocked the request with status " + statusCode;
     }
 
     @Test

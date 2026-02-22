@@ -13,10 +13,15 @@ import com.dmdr.personal.portal.users.service.RefreshTokenService;
 import com.dmdr.personal.portal.users.service.UserService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import com.dmdr.personal.portal.config.ConditionalCsrfTokenRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,19 +46,24 @@ public class AuthController {
     private final JwtService jwtService;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
+    private final CsrfTokenRepository csrfTokenRepository;
 
     public AuthController(UserService userService,
             JwtService jwtService,
             PasswordResetService passwordResetService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            CsrfTokenRepository csrfTokenRepository) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.passwordResetService = passwordResetService;
         this.refreshTokenService = refreshTokenService;
+        this.csrfTokenRepository = csrfTokenRepository;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
         User user = userService.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
 
@@ -72,6 +82,8 @@ public class AuthController {
         response.setToken(token);
         response.setEmail(user.getEmail());
         response.setRoles(roles);
+
+        ensureCsrfToken(httpRequest, httpResponse);
 
         log.info("User logged in successfully: {}", user.getEmail());
         return ResponseEntity.ok()
@@ -179,5 +191,14 @@ public class AuthController {
                 .path(REFRESH_COOKIE_PATH)
                 .maxAge(0)
                 .build();
+    }
+
+    private void ensureCsrfToken(HttpServletRequest request, HttpServletResponse response) {
+        CsrfToken token = csrfTokenRepository.loadToken(request);
+        if (token == null) {
+            request.setAttribute(ConditionalCsrfTokenRepository.ALLOW_CSRF_SAVE_ATTR, Boolean.TRUE);
+            token = csrfTokenRepository.generateToken(request);
+            csrfTokenRepository.saveToken(token, request, response);
+        }
     }
 }

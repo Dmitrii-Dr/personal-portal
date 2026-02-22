@@ -20,15 +20,17 @@ public class JwtService {
     private final String secretKey;
     private final String issuer;
     private final String audience;
-    private static final long EXPIRATION_TIME_MS = 10 * 60 * 1000L; // 10 minutes
+    private final long accessTokenTtlMs;
 
     public JwtService(
-            @Value("${JWT_SECRET_KEY}") String secretKey,
+            @Value("${jwt.secret.key}") String secretKey,
             @Value("${jwt.issuer}") String issuer,
-            @Value("${jwt.audience}") String audience) {
+            @Value("${jwt.audience}") String audience,
+            @Value("${jwt.access-token-ttl-minutes:10}") long accessTokenTtlMinutes) {
         this.secretKey = secretKey;
         this.issuer = issuer;
         this.audience = audience;
+        this.accessTokenTtlMs = accessTokenTtlMinutes * 60 * 1000L;
     }
 
     private SecretKey getSigningKey() {
@@ -37,7 +39,7 @@ public class JwtService {
 
     public String generateToken(UUID userId, Set<String> roles, UUID sessionId) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + EXPIRATION_TIME_MS);
+        Date expiryDate = new Date(now.getTime() + accessTokenTtlMs);
 
         return Jwts.builder()
                 .subject(userId.toString())

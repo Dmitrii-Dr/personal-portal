@@ -5,6 +5,7 @@ import com.dmdr.personal.portal.users.model.UserSession;
 import com.dmdr.personal.portal.users.repository.UserSessionRepository;
 import com.dmdr.personal.portal.users.service.RefreshTokenService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +23,18 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int REFRESH_TOKEN_BYTES = 32; // 256 bits
-    private static final int ABSOLUTE_TTL_DAYS = 7;
-    private static final int IDLE_TTL_HOURS = 24;
+    private final long absoluteTtlMinutes;
+    private final long idleTtlMinutes;
 
     private final UserSessionRepository userSessionRepository;
 
-    public RefreshTokenServiceImpl(UserSessionRepository userSessionRepository) {
+    public RefreshTokenServiceImpl(
+            UserSessionRepository userSessionRepository,
+            @Value("${jwt.refresh-token-absolute-ttl-minutes:10080}") long absoluteTtlMinutes,
+            @Value("${jwt.refresh-token-idle-ttl-minutes:1440}") long idleTtlMinutes) {
         this.userSessionRepository = userSessionRepository;
+        this.absoluteTtlMinutes = absoluteTtlMinutes;
+        this.idleTtlMinutes = idleTtlMinutes;
     }
 
     @Override
@@ -41,8 +47,8 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         session.setRefreshTokenHash(hashToken(rawToken));
         session.setCreatedAt(now);
         session.setLastUsedAt(now);
-        session.setExpiresAtAbsolute(now.plusDays(ABSOLUTE_TTL_DAYS));
-        session.setExpiresAtIdle(now.plusHours(IDLE_TTL_HOURS));
+        session.setExpiresAtAbsolute(now.plusMinutes(absoluteTtlMinutes));
+        session.setExpiresAtIdle(now.plusMinutes(idleTtlMinutes));
         userSessionRepository.save(session);
 
         return new RefreshTokenIssueResult(session.getSessionId(), rawToken, session.getExpiresAtAbsolute());
@@ -65,7 +71,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         String newToken = generateRefreshToken();
         session.setRefreshTokenHash(hashToken(newToken));
         session.setLastUsedAt(now);
-        session.setExpiresAtIdle(now.plusHours(IDLE_TTL_HOURS));
+        session.setExpiresAtIdle(now.plusMinutes(idleTtlMinutes));
         userSessionRepository.save(session);
 
         return new RefreshTokenRotationResult(session.getSessionId(), session.getUser().getId(), newToken, session.getExpiresAtAbsolute());

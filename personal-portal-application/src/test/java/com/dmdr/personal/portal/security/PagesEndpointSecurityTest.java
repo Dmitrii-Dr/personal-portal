@@ -39,7 +39,7 @@ class PagesEndpointSecurityTest extends SecurityTestBase {
     void shouldDenyAccessWithoutToken() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get(PAGES_URL)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -50,7 +50,7 @@ class PagesEndpointSecurityTest extends SecurityTestBase {
         mockMvc.perform(MockMvcRequestBuilders.get(PAGES_URL)
                         .header("Authorization", "Bearer " + invalidToken)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }
 
