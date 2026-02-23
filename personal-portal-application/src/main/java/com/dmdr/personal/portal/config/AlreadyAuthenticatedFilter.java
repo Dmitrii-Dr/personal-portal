@@ -31,7 +31,6 @@ public class AlreadyAuthenticatedFilter extends OncePerRequestFilter {
         // JWT filter sets principal as email (String), anonymous users have "anonymousUser" as principal
         boolean isAuthenticated = authentication != null 
                 && authentication.isAuthenticated()
-                && authentication.getPrincipal() instanceof String
                 && !"anonymousUser".equals(authentication.getPrincipal());
 
         if (isAuthenticated && (requestPath.equals(LOGIN_PATH) || requestPath.equals(REGISTRY_PATH))) {
@@ -45,4 +44,3 @@ public class AlreadyAuthenticatedFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-

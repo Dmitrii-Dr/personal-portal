@@ -6,6 +6,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 public class CurrentUserService {
 
@@ -21,9 +23,9 @@ public class CurrentUserService {
             throw new IllegalArgumentException("User must be authenticated");
         }
 
-        String email = authentication.getName();
-        return userService.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+        String userIdRaw = authentication.getName();
+        UUID userId = UUID.fromString(userIdRaw);
+        return userService.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
     }
 }
-

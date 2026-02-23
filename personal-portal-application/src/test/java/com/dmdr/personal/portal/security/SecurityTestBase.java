@@ -11,6 +11,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Set;
+import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
@@ -29,16 +30,28 @@ public abstract class SecurityTestBase {
     @MockBean
     protected com.dmdr.personal.portal.config.AdminUserInitializer adminUserInitializer;
 
+    @MockBean
+    protected com.dmdr.personal.portal.booking.config.BookingSettingsInitializer bookingSettingsInitializer;
+
+    @MockBean
+    protected com.dmdr.personal.portal.config.HomePageInitializer homePageInitializer;
+
+    @MockBean
+    protected com.dmdr.personal.portal.booking.service.impl.AvailabilityOverrideArchiveScheduler availabilityOverrideArchiveScheduler;
+
+    @MockBean
+    protected com.dmdr.personal.portal.booking.service.impl.AvailabilityRuleArchiveScheduler availabilityRuleArchiveScheduler;
+
     protected String generateUserToken() {
-        return jwtService.generateToken("user@example.com", Set.of("ROLE_USER"));
+        return jwtService.generateToken(UUID.randomUUID(), Set.of("ROLE_USER"), UUID.randomUUID());
     }
 
     protected String generateAdminToken() {
-        return jwtService.generateToken("admin@example.com", Set.of("ROLE_ADMIN"));
+        return jwtService.generateToken(UUID.randomUUID(), Set.of("ROLE_ADMIN"), UUID.randomUUID());
     }
 
     protected String generateUserAndAdminToken() {
-        return jwtService.generateToken("admin@example.com", Set.of("ROLE_USER", "ROLE_ADMIN"));
+        return jwtService.generateToken(UUID.randomUUID(), Set.of("ROLE_USER", "ROLE_ADMIN"), UUID.randomUUID());
     }
 
     protected String generateInvalidToken() {
