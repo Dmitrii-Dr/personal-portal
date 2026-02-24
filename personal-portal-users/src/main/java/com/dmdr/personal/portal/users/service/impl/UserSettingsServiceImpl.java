@@ -92,7 +92,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 	public boolean isEmailNotificationEnabled(UUID userId) {
 		UserSettings settings = userSettingsRepository.findByUserId(userId).orElse(null);
 		if (settings == null) {
-			// Default to true if settings don't exist
 			return true;
 		}
 		return settings.isEmailNotificationEnabled();
