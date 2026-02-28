@@ -13,6 +13,17 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(PersonalPortalRuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handlePortalRuntimeException(PersonalPortalRuntimeException e) {
+        PortalErrorCode errorCode = e.getErrorCode();
+        log.error("Portal exception: {} ({})", e.getMessage(), errorCode.getCode(), e);
+        Map<String, Object> error = Map.of(
+            "code", errorCode.getCode(),
+            "message", errorCode.getMessage()
+        );
+        return ResponseEntity.status(errorCode.getHttpCode()).body(error);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException e) {
         log.error("Illegal argument exception: {}", e.getMessage(), e);
@@ -43,4 +54,3 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }
-

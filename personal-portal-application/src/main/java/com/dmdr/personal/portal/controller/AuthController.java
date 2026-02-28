@@ -6,6 +6,8 @@ import com.dmdr.personal.portal.users.dto.CreateUserRequest;
 import com.dmdr.personal.portal.users.dto.ForgotPasswordRequest;
 import com.dmdr.personal.portal.users.dto.LoginRequest;
 import com.dmdr.personal.portal.users.dto.ResetPasswordRequest;
+import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
+import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.PasswordResetService;
@@ -92,31 +94,16 @@ public class AuthController {
     }
 
     @PostMapping("/registry")
-    //TODO probably registry should not return token, but only status code 201
-    public ResponseEntity<AuthResponse> registry(@Valid @RequestBody CreateUserRequest request) {
+    public ResponseEntity<Void> registry(@Valid @RequestBody CreateUserRequest request) {
         // Validate that user doesn't exist
         if (userService.findByEmail(request.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("User with email " + request.getEmail() + " already exists");
+            throw new PersonalPortalRuntimeException(PortalErrorCode.EMAIL_ALREADY_IN_USE);
         }
 
         User user = userService.createUser(request);
 
-        Set<String> roles = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toSet());
-
-        RefreshTokenService.RefreshTokenIssueResult refreshResult = refreshTokenService.issueRefreshToken(user);
-        String token = jwtService.generateToken(user.getId(), roles, refreshResult.sessionId());
-
-        AuthResponse response = new AuthResponse();
-        response.setToken(token);
-        response.setEmail(user.getEmail());
-        response.setRoles(roles);
-
         log.info("User registered successfully: {}", user.getEmail());
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(refreshResult.refreshToken(), refreshResult.expiresAtAbsolute()).toString())
-                .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/refresh")

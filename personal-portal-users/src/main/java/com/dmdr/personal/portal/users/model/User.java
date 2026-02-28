@@ -58,6 +58,9 @@ public class User {
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = false;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

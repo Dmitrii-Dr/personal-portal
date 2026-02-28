@@ -4,6 +4,7 @@ import com.dmdr.personal.portal.core.email.EmailService;
 import com.dmdr.personal.portal.users.dto.CreateUserAdminRequest;
 import com.dmdr.personal.portal.users.dto.CreateUserSettingsRequest;
 import com.dmdr.personal.portal.users.dto.UserResponse;
+import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
 import jakarta.validation.Valid;
@@ -32,7 +33,7 @@ public class AdminAuthController {
 	@PostMapping("/user/registry")
 	public ResponseEntity<UserResponse> registry(@Valid @RequestBody CreateUserAdminRequest request) {
 		// Create user by admin
-		com.dmdr.personal.portal.users.model.User user = userService.createUserByAdmin(
+		User user = userService.createUserByAdmin(
 				request.getEmail(),
 				request.getFirstName(),
 				request.getLastName(),
