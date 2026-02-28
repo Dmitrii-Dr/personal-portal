@@ -8,6 +8,7 @@ import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin")
+@Slf4j
 public class AdminAuthController {
 
 	private final UserService userService;
@@ -52,7 +54,7 @@ public class AdminAuthController {
 				emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName(), user.getLastName());
 			} catch (Exception e) {
 				// Log error but don't fail user creation if email fails
-				System.err.println("Failed to send welcome email to " + user.getEmail() + ": " + e.getMessage());
+				log.error("Failed to send welcome email to user " + user.getId() + ": " + e.getMessage());
 			}
 		}
 

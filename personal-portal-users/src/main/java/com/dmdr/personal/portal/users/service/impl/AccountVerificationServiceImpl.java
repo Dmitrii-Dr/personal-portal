@@ -30,68 +30,45 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     private final EmailService emailService;
     private final int codeExpiryMinutes;
     private final int maxAttempts;
+    private final int maxResendsPerDay;
 
     public AccountVerificationServiceImpl(AccountVerificationCodeRepository verificationCodeRepository,
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            EmailService emailService,
-            @Value("${account.verification.code.expiry-minutes:10}") int codeExpiryMinutes,
-            @Value("${account.verification.code.max-attempts:5}") int maxAttempts) {
+                                          UserRepository userRepository,
+                                          PasswordEncoder passwordEncoder,
+                                          EmailService emailService,
+                                          @Value("${account.verification.code.expiry-minutes:10}") int codeExpiryMinutes,
+                                          @Value("${account.verification.code.max-attempts:5}") int maxAttempts,
+                                          @Value("${account.verification.resend.max-per-day:5}") int maxResendsPerDay) {
         this.verificationCodeRepository = verificationCodeRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.codeExpiryMinutes = codeExpiryMinutes;
         this.maxAttempts = maxAttempts;
+        this.maxResendsPerDay = maxResendsPerDay;
     }
 
     @Override
     public void issueVerificationCode(User user) {
-        if (user == null) {
-            throw new IllegalArgumentException("User cannot be null");
-        }
         if (user.isActive()) {
             return;
         }
-
-        String rawCode = generateCode();
-        String codeHash = passwordEncoder.encode(rawCode);
-        OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(codeExpiryMinutes);
-
         AccountVerificationCode verificationCode = verificationCodeRepository.findByUser(user)
                 .orElseGet(AccountVerificationCode::new);
-        verificationCode.setUser(user);
-        verificationCode.setCodeHash(codeHash);
-        verificationCode.setExpiresAt(expiresAt);
-        verificationCode.setFailedAttempts(0);
-        verificationCodeRepository.save(verificationCode);
 
-        try {
-            emailService.sendAccountVerificationCodeEmail(
-                    user.getEmail(),
-                    user.getFirstName(),
-                    user.getLastName(),
-                    rawCode,
-                    codeExpiryMinutes);
-            log.info("Account verification code sent to {}", user.getEmail());
-        } catch (Exception e) {
-            log.error("Failed to send account verification code to {}: {}", user.getEmail(), e.getMessage(), e);
-        }
+        issueAndSendCode(user, verificationCode);
     }
 
     @Override
-    public void verifyCode(String email, String code) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification code"));
-
+    public void verifyCode(User user, String code) {
         if (user.isActive()) {
             return;
         }
-
         AccountVerificationCode verificationCode = verificationCodeRepository.findByUser(user)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification code"));
 
         if (verificationCode.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            log.error("Verification code has expired. A new code need to be requested. User: {}", user.getId());
             verificationCodeRepository.delete(verificationCode);
             throw new IllegalArgumentException("Invalid or expired verification code");
         }
@@ -101,8 +78,10 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
             verificationCode.setFailedAttempts(attempts);
 
             if (attempts >= maxAttempts) {
-                verificationCodeRepository.delete(verificationCode);
+                log.error("Too many failed attempts to verify code for user {}. It should request a new verification code", user.getId());
+                throw new IllegalArgumentException("Verify code attempts  exceeds maximum. Request a new verification code");
             } else {
+                log.warn("Incorrect verification code for user {}. Failed attempts counter is: {}", user.getId(), attempts);
                 verificationCodeRepository.save(verificationCode);
             }
 
@@ -112,11 +91,37 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         user.setActive(true);
         userRepository.save(user);
         verificationCodeRepository.delete(verificationCode);
-        log.info("User account activated: {}", user.getEmail());
+        log.info("User account activated: {}", user.getId());
     }
 
     private String generateCode() {
         int value = secureRandom.nextInt(CODE_UPPER_BOUND);
         return String.format("%06d", value);
+    }
+
+
+    private void issueAndSendCode(User user, AccountVerificationCode verificationCode) {
+        OffsetDateTime now = OffsetDateTime.now();
+        String rawCode = generateCode();
+        verificationCode.setUser(user);
+        verificationCode.setCodeHash(passwordEncoder.encode(rawCode));
+        verificationCode.setExpiresAt(now.plusMinutes(codeExpiryMinutes));
+        verificationCode.setFailedAttempts(0);
+
+        verificationCode.setResendCount(verificationCode.getResendCount() + 1);
+
+        verificationCodeRepository.save(verificationCode);
+
+        try {
+            emailService.sendAccountVerificationCodeEmail(
+                    user.getEmail(),
+                    user.getFirstName(),
+                    user.getLastName(),
+                    rawCode,
+                    codeExpiryMinutes);
+            log.info("Account verification code sent to {}", user.getId());
+        } catch (Exception e) {
+            log.error("Failed to send account verification code to {}: {}", user.getId(), e.getMessage(), e);
+        }
     }
 }

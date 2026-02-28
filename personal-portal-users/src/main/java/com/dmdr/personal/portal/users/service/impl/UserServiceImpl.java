@@ -13,6 +13,7 @@ import com.dmdr.personal.portal.users.service.RoleService;
 import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.model.SignedAgreement;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     private static final String DEFAULT_ROLE = SystemRole.USER.getAuthority();
@@ -86,7 +88,7 @@ public class UserServiceImpl implements UserService {
                 emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
             } catch (Exception e) {
                 // Log error but don't fail user creation if email fails
-                System.err.println("Failed to send welcome email to " + savedUser.getEmail() + ": " + e.getMessage());
+                log.error("Failed to send welcome email to user {} : {} ", savedUser.getId(), e.getMessage());
             }
         }
 

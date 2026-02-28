@@ -44,6 +44,9 @@ public class AccountVerificationCode {
     @Column(name = "failed_attempts", nullable = false)
     private int failedAttempts;
 
+    @Column(name = "resend_count", nullable = false)
+    private int resendCount;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

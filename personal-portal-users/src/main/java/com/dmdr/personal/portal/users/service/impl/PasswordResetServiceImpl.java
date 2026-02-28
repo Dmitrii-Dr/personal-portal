@@ -113,6 +113,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         // Clean up token (Important!)
         tokenRepository.delete(resetToken);
 
-        log.info("Password successfully reset for user: {}", user.getEmail());
+        log.info("Password successfully reset for user: {}", user.getId());
     }
 }

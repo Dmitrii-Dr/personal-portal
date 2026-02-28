@@ -6,5 +6,5 @@ public interface AccountVerificationService {
 
     void issueVerificationCode(User user);
 
-    void verifyCode(String email, String code);
+    void verifyCode(User user, String code);
 }

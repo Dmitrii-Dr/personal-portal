@@ -59,6 +59,7 @@ CREATE TABLE account_verification_codes (
     code_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
+    resend_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT fk_account_verification_codes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
