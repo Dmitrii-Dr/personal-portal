@@ -8,9 +8,11 @@ import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.dto.CreateRoleRequest;
 import com.dmdr.personal.portal.users.dto.CreateUserRequest;
 import com.dmdr.personal.portal.users.repository.UserRepository;
+import com.dmdr.personal.portal.users.service.AgreementVerifier;
 import com.dmdr.personal.portal.users.service.RoleService;
 import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.model.SignedAgreement;
+import com.dmdr.personal.portal.users.service.UserSettingsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,13 +37,13 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final RoleService roleService;
     private final EmailService emailService;
-    private final com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService;
-    private final com.dmdr.personal.portal.users.service.AgreementVerifier agreementVerifier;
+    private final UserSettingsService userSettingsService;
+    private final AgreementVerifier agreementVerifier;
 
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
             RoleService roleService, EmailService emailService,
-            com.dmdr.personal.portal.users.service.UserSettingsService userSettingsService,
-            com.dmdr.personal.portal.users.service.AgreementVerifier agreementVerifier) {
+            UserSettingsService userSettingsService,
+            AgreementVerifier agreementVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;

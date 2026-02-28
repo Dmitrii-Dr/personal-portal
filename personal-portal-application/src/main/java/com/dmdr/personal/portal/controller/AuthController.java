@@ -6,10 +6,12 @@ import com.dmdr.personal.portal.users.dto.CreateUserRequest;
 import com.dmdr.personal.portal.users.dto.ForgotPasswordRequest;
 import com.dmdr.personal.portal.users.dto.LoginRequest;
 import com.dmdr.personal.portal.users.dto.ResetPasswordRequest;
+import com.dmdr.personal.portal.users.dto.VerifyAccountRequest;
 import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
 import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
+import com.dmdr.personal.portal.users.service.AccountVerificationService;
 import com.dmdr.personal.portal.users.service.PasswordResetService;
 import com.dmdr.personal.portal.users.service.RefreshTokenService;
 import com.dmdr.personal.portal.users.service.UserService;
@@ -48,17 +50,20 @@ public class AuthController {
     private final JwtService jwtService;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
+    private final AccountVerificationService accountVerificationService;
     private final CsrfTokenRepository csrfTokenRepository;
 
     public AuthController(UserService userService,
             JwtService jwtService,
             PasswordResetService passwordResetService,
             RefreshTokenService refreshTokenService,
+            AccountVerificationService accountVerificationService,
             CsrfTokenRepository csrfTokenRepository) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.passwordResetService = passwordResetService;
         this.refreshTokenService = refreshTokenService;
+        this.accountVerificationService = accountVerificationService;
         this.csrfTokenRepository = csrfTokenRepository;
     }
 
@@ -71,6 +76,11 @@ public class AuthController {
 
         if (!userService.validatePassword(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid email or password");
+        }
+
+        if (!user.isActive()) {
+            accountVerificationService.issueVerificationCode(user);
+            throw new PersonalPortalRuntimeException(PortalErrorCode.ACCOUNT_NOT_VERIFIED);
         }
 
         Set<String> roles = user.getRoles().stream()
@@ -101,9 +111,20 @@ public class AuthController {
         }
 
         User user = userService.createUser(request);
+        accountVerificationService.issueVerificationCode(user);
 
         log.info("User registered successfully: {}", user.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/verify-account")
+    public ResponseEntity<Void> verifyAccount(@Valid @RequestBody VerifyAccountRequest request) {
+        try {
+            accountVerificationService.verifyCode(request.getEmail(), request.getCode());
+        } catch (IllegalArgumentException e) {
+            throw new PersonalPortalRuntimeException(PortalErrorCode.INVALID_OR_EXPIRED_VERIFICATION_CODE);
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/refresh")

@@ -62,5 +62,20 @@ public interface EmailService {
      * @param resetLink the password reset link with token
      */
     void sendPasswordResetEmail(String toEmail, String firstName, String lastName, String resetLink);
-}
 
+    /**
+     * Sends account verification code email to the user.
+     *
+     * @param toEmail the recipient's email
+     * @param firstName the recipient's first name
+     * @param lastName the recipient's last name
+     * @param verificationCode one-time numeric verification code
+     * @param expiryMinutes code validity period in minutes
+     */
+    void sendAccountVerificationCodeEmail(
+            String toEmail,
+            String firstName,
+            String lastName,
+            String verificationCode,
+            int expiryMinutes);
+}

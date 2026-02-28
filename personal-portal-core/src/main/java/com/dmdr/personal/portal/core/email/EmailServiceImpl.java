@@ -256,5 +256,49 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to load password reset email template: " + e);
         }
     }
-}
 
+    @Override
+    public void sendAccountVerificationCodeEmail(String toEmail, String firstName, String lastName,
+            String verificationCode, int expiryMinutes) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+
+            helper.setFrom(fromEmail, fromName);
+            helper.setTo(toEmail);
+            helper.setSubject("Verify your Personal Portal account");
+
+            String htmlContent = buildAccountVerificationEmailHtml(
+                    firstName,
+                    lastName,
+                    verificationCode,
+                    expiryMinutes);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+        } catch (MessagingException | IOException e) {
+            System.err.println("Failed to send account verification email to " + toEmail + ": " + e.getMessage());
+        }
+    }
+
+    private String buildAccountVerificationEmailHtml(String firstName, String lastName, String verificationCode,
+            int expiryMinutes) {
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/email/account-verification-code.html");
+            String template = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+
+            String displayName = firstName + " " + lastName;
+            return template
+                    .replace("{{displayName}}", displayName)
+                    .replace("{{verificationCode}}", verificationCode)
+                    .replace("{{expiryMinutes}}", String.valueOf(expiryMinutes));
+        } catch (IOException e) {
+            System.err.println("Failed to load account verification email template: " + e.getMessage());
+            throw new RuntimeException("Failed to load account verification email template: " + e);
+        }
+    }
+}

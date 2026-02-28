@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Your Account</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f0f4f4;
+            font-family: Arial, sans-serif;
+            color: #1f4545;
+        }
+        .container {
+            max-width: 560px;
+            margin: 24px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #d6e4e4;
+            overflow: hidden;
+        }
+        .header {
+            padding: 24px;
+            background: linear-gradient(135deg, #2c5f5f, #1f4545);
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 24px;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        .code {
+            margin: 20px 0;
+            display: inline-block;
+            padding: 12px 18px;
+            background: #e7f1f1;
+            color: #1f4545;
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: 6px;
+            border-radius: 8px;
+            border: 1px solid #bdd4d4;
+        }
+        .footer {
+            padding: 0 24px 24px;
+            color: #4b5d5d;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">Account Verification</div>
+    <div class="content">
+        <p>Hello {{displayName}},</p>
+        <p>Your one-time security code is:</p>
+        <div class="code">{{verificationCode}}</div>
+        <p>This code expires in {{expiryMinutes}} minutes.</p>
+        <p>If you did not request this, ignore this email.</p>
+    </div>
+    <div class="footer">
+        Personal Portal security notice: never share this code with anyone.
+    </div>
+</div>
+</body>
+</html>
