@@ -80,7 +80,6 @@ public class AuthController {
         }
 
         if (!user.isActive()) {
-            accountVerificationService.issueVerificationCode(user);
             throw new PersonalPortalRuntimeException(PortalErrorCode.ACCOUNT_NOT_VERIFIED);
         }
 
@@ -133,8 +132,7 @@ public class AuthController {
     @PostMapping("/request-verification-code")
     public ResponseEntity<Void> requestVerificationCode(@Valid @RequestBody RequestVerificationCodeRequest request) {
         try {
-            User user = userService.findByEmail(request.getEmail())
-                    .orElse(null);
+            User user = userService.findByEmail(request.getEmail()).orElse(null);
             if(user == null) {
                 log.error("Verification code was requested but no user exists with email {}", request.getEmail());
                 //return success for security reasons

@@ -50,19 +50,35 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
 
     @Override
     public void issueVerificationCode(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
         if (user.isActive()) {
             return;
         }
+
         AccountVerificationCode verificationCode = verificationCodeRepository.findByUser(user)
                 .orElseGet(AccountVerificationCode::new);
 
         OffsetDateTime now = OffsetDateTime.now();
+
+        if (!verificationCode.getCreatedAt().toLocalDate().isEqual(now.toLocalDate())) {
+            log.warn("Account verification code for user {} was generated {}. This code will be replaced with a new one",
+                    user.getId(), verificationCode.getCreatedAt());
+            verificationCodeRepository.delete(verificationCode);
+            verificationCode = new AccountVerificationCode();
+        } else if (verificationCode.getResendCount() >= maxResendsPerDay) {
+            log.error("Issue Verification code request is rate limited for user {}. maxResendsPerDay: {} ",
+                    user.getId(), maxResendsPerDay);
+            throw new IllegalStateException("Verification code request is rate limited");
+        }
+
+
         String rawCode = generateCode();
         verificationCode.setUser(user);
         verificationCode.setCodeHash(passwordEncoder.encode(rawCode));
         verificationCode.setExpiresAt(now.plusMinutes(codeExpiryMinutes));
         verificationCode.setFailedAttempts(0);
-
         verificationCode.setResendCount(verificationCode.getResendCount() + 1);
 
         verificationCodeRepository.save(verificationCode);
