@@ -5,9 +5,7 @@ import com.dmdr.personal.portal.users.dto.AuthResponse;
 import com.dmdr.personal.portal.users.dto.CreateUserRequest;
 import com.dmdr.personal.portal.users.dto.ForgotPasswordRequest;
 import com.dmdr.personal.portal.users.dto.LoginRequest;
-import com.dmdr.personal.portal.users.dto.RequestVerificationCodeRequest;
 import com.dmdr.personal.portal.users.dto.ResetPasswordRequest;
-import com.dmdr.personal.portal.users.dto.VerifyAccountRequest;
 import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
 import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 import com.dmdr.personal.portal.users.model.Role;
@@ -115,34 +113,6 @@ public class AuthController {
 
         log.info("User registered successfully: {}", user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).build();
-    }
-
-    @PostMapping("/verify-account")
-    public ResponseEntity<Void> verifyAccount(@Valid @RequestBody VerifyAccountRequest request) {
-        User user = userService.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-        try {
-            accountVerificationService.verifyCode(user, request.getCode());
-        } catch (IllegalArgumentException e) {
-            throw new PersonalPortalRuntimeException(PortalErrorCode.INVALID_OR_EXPIRED_VERIFICATION_CODE);
-        }
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/request-verification-code")
-    public ResponseEntity<Void> requestVerificationCode(@Valid @RequestBody RequestVerificationCodeRequest request) {
-        try {
-            User user = userService.findByEmail(request.getEmail()).orElse(null);
-            if(user == null) {
-                log.error("Verification code was requested but no user exists with email {}", request.getEmail());
-                //return success for security reasons
-                return ResponseEntity.noContent().build();
-            }
-            accountVerificationService.issueVerificationCode(user);
-        } catch (IllegalStateException ignored) {
-            // Security: same response to avoid revealing account state.
-        }
-        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/refresh")
