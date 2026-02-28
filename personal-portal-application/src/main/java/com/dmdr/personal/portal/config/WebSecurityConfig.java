@@ -23,6 +23,7 @@ public class WebSecurityConfig {
 
     private final CorsConfigurationSource corsConfigurationSource;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AccountActivationFilter accountActivationFilter;
     private final AlreadyAuthenticatedFilter alreadyAuthenticatedFilter;
     private final CsrfTokenRepository csrfTokenRepository;
     private final CsrfTokenRequestHandler csrfTokenRequestHandler;
@@ -30,12 +31,14 @@ public class WebSecurityConfig {
 
     public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            AccountActivationFilter accountActivationFilter,
             AlreadyAuthenticatedFilter alreadyAuthenticatedFilter,
             CsrfTokenRepository csrfTokenRepository,
             CsrfTokenRequestHandler csrfTokenRequestHandler,
             RequestMatcher csrfRequestMatcher) {
         this.corsConfigurationSource = corsConfigurationSource;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.accountActivationFilter = accountActivationFilter;
         this.alreadyAuthenticatedFilter = alreadyAuthenticatedFilter;
         this.csrfTokenRepository = csrfTokenRepository;
         this.csrfTokenRequestHandler = csrfTokenRequestHandler;
@@ -59,6 +62,7 @@ public class WebSecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(accountActivationFilter, JwtAuthenticationFilter.class)
                 .addFilterAfter(alreadyAuthenticatedFilter, JwtAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints - health check and authentication endpoints
