@@ -56,7 +56,28 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         AccountVerificationCode verificationCode = verificationCodeRepository.findByUser(user)
                 .orElseGet(AccountVerificationCode::new);
 
-        issueAndSendCode(user, verificationCode);
+        OffsetDateTime now = OffsetDateTime.now();
+        String rawCode = generateCode();
+        verificationCode.setUser(user);
+        verificationCode.setCodeHash(passwordEncoder.encode(rawCode));
+        verificationCode.setExpiresAt(now.plusMinutes(codeExpiryMinutes));
+        verificationCode.setFailedAttempts(0);
+
+        verificationCode.setResendCount(verificationCode.getResendCount() + 1);
+
+        verificationCodeRepository.save(verificationCode);
+
+        try {
+            emailService.sendAccountVerificationCodeEmail(
+                    user.getEmail(),
+                    user.getFirstName(),
+                    user.getLastName(),
+                    rawCode,
+                    codeExpiryMinutes);
+            log.info("Account verification code sent to {}", user.getId());
+        } catch (Exception e) {
+            log.error("Failed to send account verification code to {}: {}", user.getId(), e.getMessage(), e);
+        }
     }
 
     @Override
@@ -97,31 +118,5 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     private String generateCode() {
         int value = secureRandom.nextInt(CODE_UPPER_BOUND);
         return String.format("%06d", value);
-    }
-
-
-    private void issueAndSendCode(User user, AccountVerificationCode verificationCode) {
-        OffsetDateTime now = OffsetDateTime.now();
-        String rawCode = generateCode();
-        verificationCode.setUser(user);
-        verificationCode.setCodeHash(passwordEncoder.encode(rawCode));
-        verificationCode.setExpiresAt(now.plusMinutes(codeExpiryMinutes));
-        verificationCode.setFailedAttempts(0);
-
-        verificationCode.setResendCount(verificationCode.getResendCount() + 1);
-
-        verificationCodeRepository.save(verificationCode);
-
-        try {
-            emailService.sendAccountVerificationCodeEmail(
-                    user.getEmail(),
-                    user.getFirstName(),
-                    user.getLastName(),
-                    rawCode,
-                    codeExpiryMinutes);
-            log.info("Account verification code sent to {}", user.getId());
-        } catch (Exception e) {
-            log.error("Failed to send account verification code to {}: {}", user.getId(), e.getMessage(), e);
-        }
     }
 }

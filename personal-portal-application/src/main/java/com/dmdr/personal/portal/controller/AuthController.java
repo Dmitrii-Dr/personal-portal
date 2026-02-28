@@ -120,8 +120,10 @@ public class AuthController {
 
     @PostMapping("/verify-account")
     public ResponseEntity<Void> verifyAccount(@Valid @RequestBody VerifyAccountRequest request) {
+        User user = userService.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
         try {
-            accountVerificationService.verifyCode(request.getEmail(), request.getCode());
+            accountVerificationService.verifyCode(user, request.getCode());
         } catch (IllegalArgumentException e) {
             throw new PersonalPortalRuntimeException(PortalErrorCode.INVALID_OR_EXPIRED_VERIFICATION_CODE);
         }
