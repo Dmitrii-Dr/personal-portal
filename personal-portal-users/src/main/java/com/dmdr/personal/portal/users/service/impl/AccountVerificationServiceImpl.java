@@ -1,6 +1,8 @@
 package com.dmdr.personal.portal.users.service.impl;
 
 import com.dmdr.personal.portal.core.email.EmailService;
+import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
+import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 import com.dmdr.personal.portal.users.model.AccountVerificationCode;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.AccountVerificationCodeRepository;
@@ -74,7 +76,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         } else if (verificationCode.getResendCount() >= maxResendsPerDay) {
             log.error("Issue Verification code request is rate limited for user {}. maxResendsPerDay: {} ",
                     user.getId(), maxResendsPerDay);
-            throw new IllegalStateException("Verification code request is rate limited");
+            throw new PersonalPortalRuntimeException(PortalErrorCode.VERIFICATION_CODE_RATE_LIMITED);
         }
 
 
