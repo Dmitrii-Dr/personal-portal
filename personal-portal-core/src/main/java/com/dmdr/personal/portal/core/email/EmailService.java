@@ -67,6 +67,19 @@ public interface EmailService {
             String sessionTypeName, Instant startTime, String clientMessage);
 
     /**
+     * Sends booking-update-request-received email to the client.
+     *
+     * @param toEmail the recipient's email address
+     * @param firstName the recipient's first name
+     * @param lastName the recipient's last name
+     * @param sessionTypeName the name of the session type
+     * @param oldStartTime the previously requested start time
+     * @param newStartTime the newly requested start time
+     */
+    void sendBookingUpdateRequestUserEmail(String toEmail, String firstName, String lastName,
+            String sessionTypeName, Instant oldStartTime, Instant newStartTime);
+
+    /**
      * Sends a password reset email to the user.
      *
      * @param toEmail the recipient's email address

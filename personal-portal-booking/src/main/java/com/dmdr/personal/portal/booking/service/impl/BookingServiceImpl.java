@@ -263,9 +263,11 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponse update(UUID userId, UpdateBookingRequest request) {
         Booking bookingToUpdate = bookingRepository.findById(request.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + request.getId()));
+        User client = bookingToUpdate.getClient();
+        Instant oldStartTime = bookingToUpdate.getStartTime();
 
         // Verify the booking belongs to the user
-        if (!bookingToUpdate.getClient().getId().equals(userId)) {
+        if (!client.getId().equals(userId)) {
             throw new IllegalArgumentException("Booking does not belong to user");
         }
 
@@ -305,6 +307,21 @@ public class BookingServiceImpl implements BookingService {
             bookingToUpdate.setStatus(BookingStatus.PENDING_APPROVAL);
 
             saved = bookingRepository.saveAndFlush(bookingToUpdate);
+        }
+
+        try {
+            if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                emailService.sendBookingUpdateRequestUserEmail(
+                        client.getEmail(),
+                        client.getFirstName(),
+                        client.getLastName(),
+                        bookingToUpdate.getSessionName(),
+                        oldStartTime,
+                        saved.getStartTime()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to send booking update request user email to {}: {}", client.getId(), e.getMessage());
         }
 
         return toResponse(saved);
