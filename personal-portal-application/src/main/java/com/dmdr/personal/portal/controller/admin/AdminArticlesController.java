@@ -60,6 +60,7 @@ public class AdminArticlesController {
                                 dto.setEmail(u.getEmail());
                                 dto.setFirstName(u.getFirstName());
                                 dto.setLastName(u.getLastName());
+                                dto.setVerified(u.isActive());
                                 dto.setCreatedAt(u.getCreatedAt());
                                 dto.setUpdatedAt(u.getUpdatedAt());
                                 return dto;
@@ -115,4 +116,3 @@ public class AdminArticlesController {
         return ResponseEntity.noContent().build();
     }
 }
-

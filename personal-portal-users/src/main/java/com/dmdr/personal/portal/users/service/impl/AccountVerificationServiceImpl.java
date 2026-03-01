@@ -62,7 +62,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
 
         OffsetDateTime now = OffsetDateTime.now();
 
-        if (!verificationCode.getCreatedAt().toLocalDate().isEqual(now.toLocalDate())) {
+        if (verificationCode.getCreatedAt() != null && !verificationCode.getCreatedAt().toLocalDate().isEqual(now.toLocalDate())) {
             log.warn("Account verification code for user {} was generated {}. This code will be replaced with a new one",
                     user.getId(), verificationCode.getCreatedAt());
             verificationCodeRepository.delete(verificationCode);

@@ -3,7 +3,7 @@ package com.dmdr.personal.portal.controller.admin;
 import com.dmdr.personal.portal.core.email.EmailService;
 import com.dmdr.personal.portal.users.dto.CreateUserAdminRequest;
 import com.dmdr.personal.portal.users.dto.CreateUserSettingsRequest;
-import com.dmdr.personal.portal.users.dto.UserResponse;
+import com.dmdr.personal.portal.users.dto.UserResponseForAdmin;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
@@ -33,7 +33,7 @@ public class AdminAuthController {
 	}
 
 	@PostMapping("/user/registry")
-	public ResponseEntity<UserResponse> registry(@Valid @RequestBody CreateUserAdminRequest request) {
+	public ResponseEntity<UserResponseForAdmin> registry(@Valid @RequestBody CreateUserAdminRequest request) {
 		// Create user by admin
 		User user = userService.createUserByAdmin(
 				request.getEmail(),
@@ -58,6 +58,6 @@ public class AdminAuthController {
 			}
 		}
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
+		return ResponseEntity.status(HttpStatus.CREATED).body(UserResponseForAdmin.from(user));
 	}
 }

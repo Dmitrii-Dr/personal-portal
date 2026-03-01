@@ -26,17 +26,23 @@ public class AccountActivationFilter extends OncePerRequestFilter {
     private static final String ACCOUNT_NOT_ACTIVATED_MESSAGE = "Account must be activated.";
     private static final Pattern PUBLIC_API_PATH = Pattern.compile("^/api/v\\d+/public(?:/.*)?$");
     private static final Pattern ADMIN_API_PATH = Pattern.compile("^/api/v\\d+/admin(?:/.*)?$");
+    private static final Pattern AUTH_API_PATH = Pattern.compile("^/api/v\\d+/auth(?:/.*)?$");
+    private static final Pattern ACCOUNT_ACTIVATION_API_PATH = Pattern.compile("^/api/v\\d+/user/account/activation(?:/.*)?$");
+    private static final Pattern USER_PROFILE_API_PATH = Pattern.compile("^/api/v\\d+/user/profile(?:/.*)?$");
 
     private final UserRepository userRepository;
 
     public AccountActivationFilter(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
-
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getRequestURI();
-        return PUBLIC_API_PATH.matcher(path).matches() || ADMIN_API_PATH.matcher(path).matches();
+        return PUBLIC_API_PATH.matcher(path).matches()
+                || ADMIN_API_PATH.matcher(path).matches()
+                || AUTH_API_PATH.matcher(path).matches()
+                || ACCOUNT_ACTIVATION_API_PATH.matcher(path).matches()
+                || USER_PROFILE_API_PATH.matcher(path).matches();
     }
 
     @Override

@@ -71,14 +71,10 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         User user = userService.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+                .orElseThrow(() -> new PersonalPortalRuntimeException(PortalErrorCode.INVALID_EMAIL_PASSWORD));
 
         if (!userService.validatePassword(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid email or password");
-        }
-
-        if (!user.isActive()) {
-            throw new PersonalPortalRuntimeException(PortalErrorCode.ACCOUNT_NOT_VERIFIED);
+            throw new PersonalPortalRuntimeException(PortalErrorCode.INVALID_EMAIL_PASSWORD);
         }
 
         Set<String> roles = user.getRoles().stream()

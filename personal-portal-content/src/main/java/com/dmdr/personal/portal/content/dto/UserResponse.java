@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.content.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -16,6 +17,8 @@ public class UserResponse {
     private String firstName;
     private String lastName;
     private String phoneNumber;
+    @JsonProperty("isVerified")
+    private boolean isVerified;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

@@ -32,7 +32,7 @@ public class UserAccountActivationController {
     @PostMapping("/verification")
     public ResponseEntity<Void> verifyAccount(@Valid @RequestBody VerifyAccountRequest request) {
         User user = userService.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+                .orElseThrow(() -> new PersonalPortalRuntimeException(PortalErrorCode.INVALID_EMAIL_PASSWORD));
         try {
             accountVerificationService.verifyCode(user, request.getCode());
         } catch (IllegalArgumentException e) {
