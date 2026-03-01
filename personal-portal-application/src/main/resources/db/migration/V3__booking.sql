@@ -41,6 +41,7 @@ CREATE TABLE availability_rules (
 -- Availability overrides table
 CREATE TABLE availability_overrides (
     id BIGSERIAL PRIMARY KEY,
+    is_available BOOLEAN NOT NULL DEFAULT true,
     override_start_time TIMESTAMPTZ NOT NULL,
     override_end_time TIMESTAMPTZ NOT NULL,
     timezone_id INTEGER,

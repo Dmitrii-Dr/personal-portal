@@ -6,6 +6,7 @@ import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.AccountVerificationCodeRepository;
 import com.dmdr.personal.portal.users.repository.UserRepository;
 import com.dmdr.personal.portal.users.service.AccountVerificationService;
+import com.dmdr.personal.portal.users.service.UserSettingsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +29,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final UserSettingsService userSettingsService;
     private final int codeExpiryMinutes;
     private final int maxAttempts;
     private final int maxResendsPerDay;
@@ -36,6 +38,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
                                           UserRepository userRepository,
                                           PasswordEncoder passwordEncoder,
                                           EmailService emailService,
+                                          UserSettingsService userSettingsService,
                                           @Value("${account.verification.code.expiry-minutes:10}") int codeExpiryMinutes,
                                           @Value("${account.verification.code.max-attempts:5}") int maxAttempts,
                                           @Value("${account.verification.resend.max-per-day:5}") int maxResendsPerDay) {
@@ -43,6 +46,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.userSettingsService = userSettingsService;
         this.codeExpiryMinutes = codeExpiryMinutes;
         this.maxAttempts = maxAttempts;
         this.maxResendsPerDay = maxResendsPerDay;
@@ -129,6 +133,14 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         userRepository.save(user);
         verificationCodeRepository.delete(verificationCode);
         log.info("User account activated: {}", user.getId());
+
+        if (userSettingsService.isEmailNotificationEnabled(user.getId())) {
+            try {
+                emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName(), user.getLastName());
+            } catch (Exception e) {
+                log.error("Failed to send activation welcome email to {}: {}", user.getId(), e.getMessage(), e);
+            }
+        }
     }
 
     private String generateCode() {

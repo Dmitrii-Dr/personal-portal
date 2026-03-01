@@ -1,6 +1,5 @@
 package com.dmdr.personal.portal.users.service.impl;
 
-import com.dmdr.personal.portal.core.email.EmailService;
 import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.users.dto.UpdateUserProfileRequest;
 import com.dmdr.personal.portal.users.model.Role;
@@ -38,18 +37,16 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleService roleService;
-    private final EmailService emailService;
     private final UserSettingsService userSettingsService;
     private final AgreementVerifier agreementVerifier;
 
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
-            RoleService roleService, EmailService emailService,
+            RoleService roleService,
             UserSettingsService userSettingsService,
             AgreementVerifier agreementVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
-        this.emailService = emailService;
         this.userSettingsService = userSettingsService;
         this.agreementVerifier = agreementVerifier;
     }
@@ -80,17 +77,6 @@ public class UserServiceImpl implements UserService {
         user.addRole(userRole);
 
         User savedUser = userRepository.save(user);
-
-        // Send welcome email asynchronously (non-blocking) only if email notifications
-        // are enabled
-        if (userSettingsService.isEmailNotificationEnabled(savedUser.getId())) {
-            try {
-                emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName());
-            } catch (Exception e) {
-                // Log error but don't fail user creation if email fails
-                log.error("Failed to send welcome email to user {} : {} ", savedUser.getId(), e.getMessage());
-            }
-        }
 
         return savedUser;
     }

@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Implementation of EmailService using Spring Mail.
@@ -47,7 +49,7 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setFrom(fromEmail, fromName);
             helper.setTo(toEmail);
-            helper.setSubject("Welcome to Personal Portal!");
+            helper.setSubject("Ваш аккаунт готов к работе!");
 
             String htmlContent = buildWelcomeEmailHtml(firstName, lastName);
             helper.setText(htmlContent, true);
@@ -186,6 +188,35 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public void sendBookingRequestUserEmail(String toEmail, String firstName, String lastName,
+            String sessionTypeName, Instant startTime, String clientMessage) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+
+            helper.setFrom(fromEmail, fromName);
+            helper.setTo(toEmail);
+            helper.setSubject("Booking Request Received - " + sessionTypeName);
+
+            String htmlContent = buildBookingRequestUserEmailHtml(
+                    firstName,
+                    lastName,
+                    sessionTypeName,
+                    startTime,
+                    clientMessage);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+        } catch (MessagingException | IOException e) {
+            System.err.println("Failed to send booking request user email to " + toEmail + ": " + e.getMessage());
+        }
+    }
+
     private String buildBookingRequestAdminEmailHtml(String clientName, String clientEmail, String sessionTypeName, 
                                                     Instant startTime, String clientMessage) {
         try {
@@ -215,6 +246,42 @@ public class EmailServiceImpl implements EmailService {
         } catch (IOException e) {
             System.err.println("Failed to load booking request admin email template: " + e.getMessage());
             throw new RuntimeException("Failed to load booking request admin email template: " + e);
+        }
+    }
+
+    private String buildBookingRequestUserEmailHtml(String firstName, String lastName, String sessionTypeName,
+            Instant startTime, String clientMessage) {
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/email/booking-request-user.html");
+            String template = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+
+            String displayName = Stream.of(firstName, lastName)
+                    .filter(part -> part != null && !part.isBlank())
+                    .collect(Collectors.joining(" "));
+            if (displayName.isBlank()) {
+                displayName = "друг";
+            }
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a", Locale.ENGLISH)
+                    .withZone(ZoneId.systemDefault());
+            String formattedStartTime = formatter.format(startTime);
+
+            String result = template
+                    .replace("{{displayName}}", displayName)
+                    .replace("{{sessionTypeName}}", sessionTypeName != null ? sessionTypeName : "your session")
+                    .replace("{{startTime}}", formattedStartTime);
+
+            if (clientMessage != null && !clientMessage.trim().isEmpty()) {
+                result = result
+                        .replace("{{clientMessage}}", clientMessage);
+            } else {
+                result = result
+                        .replaceAll("(?s)<div id=\"client-message-section\".*?</div>", "");
+            }
+
+            return result;
+        } catch (IOException e) {
+            System.err.println("Failed to load booking request user email template: " + e.getMessage());
+            throw new RuntimeException("Failed to load booking request user email template: " + e);
         }
     }
 

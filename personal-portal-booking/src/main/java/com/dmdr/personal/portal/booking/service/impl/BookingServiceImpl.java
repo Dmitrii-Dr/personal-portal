@@ -163,6 +163,21 @@ public class BookingServiceImpl implements BookingService {
             saved = bookingRepository.saveAndFlush(entity);
         }
 
+        try {
+            if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                emailService.sendBookingRequestUserEmail(
+                        client.getEmail(),
+                        client.getFirstName(),
+                        client.getLastName(),
+                        sessionType.getName(),
+                        saved.getStartTime(),
+                        saved.getClientMessage()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to send booking request user email to {}: {}", client.getId(), e.getMessage());
+        }
+
         // Send email notification to all admin users
         try {
             List<User> adminUsers = userService.findByRoleName(SystemRole.ADMIN.getAuthority(), null);
