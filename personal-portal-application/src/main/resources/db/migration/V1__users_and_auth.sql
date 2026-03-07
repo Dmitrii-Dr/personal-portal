@@ -16,6 +16,7 @@ CREATE TABLE users (
     phone_number VARCHAR(20),
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
     last_password_reset_date TIMESTAMPTZ,
+    avatar_id SMALLINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

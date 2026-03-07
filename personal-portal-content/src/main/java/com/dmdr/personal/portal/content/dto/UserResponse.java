@@ -17,6 +17,7 @@ public class UserResponse {
     private String firstName;
     private String lastName;
     private String phoneNumber;
+    private Short avatarId;
     @JsonProperty("isVerified")
     private boolean isVerified;
     private OffsetDateTime createdAt;

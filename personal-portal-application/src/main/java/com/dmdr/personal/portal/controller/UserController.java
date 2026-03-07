@@ -35,6 +35,7 @@ public class UserController {
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
         dto.setPhoneNumber(user.getPhoneNumber());
+        dto.setAvatarId(user.getAvatarId());
         dto.setVerified(user.isActive());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
@@ -52,6 +53,7 @@ public class UserController {
         dto.setFirstName(updated.getFirstName());
         dto.setLastName(updated.getLastName());
         dto.setPhoneNumber(updated.getPhoneNumber());
+        dto.setAvatarId(updated.getAvatarId());
         dto.setVerified(updated.isActive());
         dto.setCreatedAt(updated.getCreatedAt());
         dto.setUpdatedAt(updated.getUpdatedAt());

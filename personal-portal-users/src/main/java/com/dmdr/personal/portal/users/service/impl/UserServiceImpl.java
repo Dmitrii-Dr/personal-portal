@@ -162,6 +162,9 @@ public class UserServiceImpl implements UserService {
         if (request.getPhoneNumber() != null) {
             user.setPhoneNumber(request.getPhoneNumber());
         }
+        if (request.getAvatarId() != null) {
+            user.setAvatarId(request.getAvatarId());
+        }
 
         return userRepository.save(user);
     }
