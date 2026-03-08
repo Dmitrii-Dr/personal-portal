@@ -36,8 +36,14 @@ public class HomePageServiceImpl implements HomePageService {
         if (request.getWelcomeMessage() != null) {
             homePage.setWelcomeMessage(request.getWelcomeMessage());
         }
-        if (request.getWelcomeMediaId() != null) {
-            homePage.setWelcomeMediaId(request.getWelcomeMediaId());
+        if (request.getWelcomeRightMediaId() != null) {
+            homePage.setWelcomeRightMediaId(request.getWelcomeRightMediaId());
+        }
+        if (request.getWelcomeLeftMediaId() != null) {
+            homePage.setWelcomeLeftMediaId(request.getWelcomeLeftMediaId());
+        }
+        if (request.getWelcomeMobileMediaId() != null) {
+            homePage.setWelcomeMobileMediaId(request.getWelcomeMobileMediaId());
         }
         if (request.getWelcomeArticleIds() != null) {
             homePage.setWelcomeArticleIds(request.getWelcomeArticleIds());
@@ -59,6 +65,9 @@ public class HomePageServiceImpl implements HomePageService {
         }
         if (request.getReviewMediaIds() != null) {
             homePage.setReviewMediaIds(request.getReviewMediaIds());
+        }
+        if (request.getExtendedParameters() != null) {
+            homePage.setExtendedParameters(request.getExtendedParameters());
         }
         if (request.getContact() != null) {
             List<Contact> contacts = request.getContact().stream()
@@ -82,4 +91,3 @@ public class HomePageServiceImpl implements HomePageService {
         }
     }
 }
-

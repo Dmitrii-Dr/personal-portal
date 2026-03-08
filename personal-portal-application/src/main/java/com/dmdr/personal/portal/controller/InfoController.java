@@ -32,7 +32,9 @@ public class InfoController {
     private HomePageResponse toHomePageResponse(HomePage homePage) {
         HomePageResponse response = new HomePageResponse();
         response.setWelcomeMessage(homePage.getWelcomeMessage());
-        response.setWelcomeMediaId(homePage.getWelcomeMediaId());
+        response.setWelcomeRightMediaId(homePage.getWelcomeRightMediaId());
+        response.setWelcomeLeftMediaId(homePage.getWelcomeLeftMediaId());
+        response.setWelcomeMobileMediaId(homePage.getWelcomeMobileMediaId());
         response.setWelcomeArticleIds(homePage.getWelcomeArticleIds());
         response.setAboutMessage(homePage.getAboutMessage());
         response.setAboutMediaId(homePage.getAboutMediaId());
@@ -40,6 +42,7 @@ public class InfoController {
         response.setEducationMediaId(homePage.getEducationMediaId());
         response.setReviewMessage(homePage.getReviewMessage());
         response.setReviewMediaIds(homePage.getReviewMediaIds());
+        response.setExtendedParameters(homePage.getExtendedParameters());
         if (homePage.getContact() != null) {
             List<ContactDto> contactDtos = homePage.getContact().stream()
                     .map(contact -> new ContactDto(contact.getPlatform(), contact.getValue(), contact.getDescription()))
@@ -63,4 +66,3 @@ public class InfoController {
         return ResponseEntity.ok(response);
     }
 }
-

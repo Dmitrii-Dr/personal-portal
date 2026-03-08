@@ -6,6 +6,7 @@ public enum PortalErrorCode {
     ACCOUNT_NOT_VERIFIED("PEC-412", 403, "Account is not verified."),
     INVALID_OR_EXPIRED_VERIFICATION_CODE("PEC-413", 400, "Invalid or expired verification code. Try again or request a new verification code."),
     VERIFICATION_CODE_RATE_LIMITED("PEC-414", 400, "Too much verification code request. Verification code rate limited"),
+    FILE_TOO_LARGE("PEC-415", 413, "File exceeds the maximum allowed size of 3MB."),
 
     UNEXPECTED_SERVER_ERROR("PEC-500", 500, "Unexpected server error.");
     private final String code;

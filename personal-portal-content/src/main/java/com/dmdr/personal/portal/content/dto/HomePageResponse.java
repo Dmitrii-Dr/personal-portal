@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Getter
@@ -12,7 +13,9 @@ import java.util.UUID;
 @NoArgsConstructor
 public class HomePageResponse {
     private String welcomeMessage;
-    private UUID welcomeMediaId;
+    private UUID welcomeRightMediaId;
+    private UUID welcomeLeftMediaId;
+    private UUID welcomeMobileMediaId;
     private List<UUID> welcomeArticleIds;
     private String aboutMessage;
     private UUID aboutMediaId;
@@ -20,6 +23,6 @@ public class HomePageResponse {
     private UUID educationMediaId;
     private String reviewMessage;
     private List<UUID> reviewMediaIds;
+    private Map<String, String> extendedParameters;
     private List<ContactDto> contact;
 }
-

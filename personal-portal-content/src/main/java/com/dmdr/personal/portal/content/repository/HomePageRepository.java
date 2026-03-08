@@ -16,10 +16,12 @@ public interface HomePageRepository extends JpaRepository<HomePage, UUID> {
     
     /**
      * Checks if a media ID is used in any field of the HomePage.
-     * Checks welcomeMediaId, aboutMediaId, educationMediaId, and reviewMediaIds array.
+     * Checks welcomeRightMediaId, welcomeLeftMediaId, welcomeMobileMediaId, aboutMediaId, educationMediaId, and reviewMediaIds array.
      */
     @Query(value = "SELECT COUNT(*) > 0 FROM home_page h WHERE " +
-           "h.welcome_media_id = :mediaId OR " +
+           "h.welcome_right_media_id = :mediaId OR " +
+           "h.welcome_left_media_id = :mediaId OR " +
+           "h.welcome_mobile_media_id = :mediaId OR " +
            "h.about_media_id = :mediaId OR " +
            "h.education_media_id = :mediaId OR " +
            ":mediaId = ANY(h.review_media_ids)", nativeQuery = true)
@@ -31,4 +33,3 @@ public interface HomePageRepository extends JpaRepository<HomePage, UUID> {
     @Query(value = "SELECT COUNT(*) > 0 FROM home_page h WHERE :articleId = ANY(h.welcome_article_ids)", nativeQuery = true)
     boolean existsByArticleId(@Param("articleId") UUID articleId);
 }
-

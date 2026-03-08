@@ -1,12 +1,14 @@
 package com.dmdr.personal.portal.service.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
 
+import static com.dmdr.personal.portal.service.exception.PortalErrorCode.FILE_TOO_LARGE;
 import static com.dmdr.personal.portal.service.exception.PortalErrorCode.UNEXPECTED_SERVER_ERROR;
 
 @RestControllerAdvice
@@ -32,6 +34,25 @@ public class GlobalExceptionHandler {
             "message", UNEXPECTED_SERVER_ERROR.getMessage()
         );
 
+        return ResponseEntity.status(UNEXPECTED_SERVER_ERROR.getHttpCode()).body(error);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalStateException(IllegalStateException e) {
+        if (e.getCause() instanceof FileSizeLimitExceededException) {
+            log.warn("File upload too large: {}", e.getMessage());
+            Map<String, Object> error = Map.of(
+                "code", FILE_TOO_LARGE.getCode(),
+                "message", FILE_TOO_LARGE.getMessage()
+            );
+            return ResponseEntity.status(FILE_TOO_LARGE.getHttpCode()).body(error);
+        }
+
+        log.error("Illegal state exception: {}", e.getMessage(), e);
+        Map<String, Object> error = Map.of(
+            "code", UNEXPECTED_SERVER_ERROR.getCode(),
+            "message", UNEXPECTED_SERVER_ERROR.getMessage()
+        );
         return ResponseEntity.status(UNEXPECTED_SERVER_ERROR.getHttpCode()).body(error);
     }
 }

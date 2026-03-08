@@ -12,7 +12,9 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
@@ -42,8 +44,14 @@ public class HomePage {
     @Column(name = "welcome_message", columnDefinition = "TEXT")
     private String welcomeMessage;
 
-    @Column(name = "welcome_media_id")
-    private UUID welcomeMediaId;
+    @Column(name = "welcome_right_media_id")
+    private UUID welcomeRightMediaId;
+
+    @Column(name = "welcome_left_media_id")
+    private UUID welcomeLeftMediaId;
+
+    @Column(name = "welcome_mobile_media_id")
+    private UUID welcomeMobileMediaId;
 
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "welcome_article_ids", columnDefinition = "UUID[]")
@@ -68,6 +76,10 @@ public class HomePage {
     @Column(name = "review_media_ids", columnDefinition = "UUID[]")
     private List<UUID> reviewMediaIds = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extended_parameters", columnDefinition = "jsonb")
+    private Map<String, String> extendedParameters = new HashMap<>();
+
     @ElementCollection
     @CollectionTable(name = "home_page_contact", joinColumns = @JoinColumn(name = "home_page_id"))
     private List<Contact> contact = new ArrayList<>();
@@ -90,4 +102,3 @@ public class HomePage {
         this.updatedAt = OffsetDateTime.now();
     }
 }
-
