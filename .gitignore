@@ -68,3 +68,4 @@ npm-debug.log*
 *.tmp
 *.bak
 .DS_Store?
+/.superset/config.json

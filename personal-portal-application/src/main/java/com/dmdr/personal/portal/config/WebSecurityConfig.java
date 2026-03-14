@@ -24,6 +24,7 @@ public class WebSecurityConfig {
     private final CorsConfigurationSource corsConfigurationSource;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AccountActivationFilter accountActivationFilter;
+    private final HomePageActiveFilter homePageActiveFilter;
     private final AlreadyAuthenticatedFilter alreadyAuthenticatedFilter;
     private final CsrfTokenRepository csrfTokenRepository;
     private final CsrfTokenRequestHandler csrfTokenRequestHandler;
@@ -32,6 +33,7 @@ public class WebSecurityConfig {
     public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AccountActivationFilter accountActivationFilter,
+            HomePageActiveFilter homePageActiveFilter,
             AlreadyAuthenticatedFilter alreadyAuthenticatedFilter,
             CsrfTokenRepository csrfTokenRepository,
             CsrfTokenRequestHandler csrfTokenRequestHandler,
@@ -39,6 +41,7 @@ public class WebSecurityConfig {
         this.corsConfigurationSource = corsConfigurationSource;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.accountActivationFilter = accountActivationFilter;
+        this.homePageActiveFilter = homePageActiveFilter;
         this.alreadyAuthenticatedFilter = alreadyAuthenticatedFilter;
         this.csrfTokenRepository = csrfTokenRepository;
         this.csrfTokenRequestHandler = csrfTokenRequestHandler;
@@ -62,7 +65,8 @@ public class WebSecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(accountActivationFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(homePageActiveFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(accountActivationFilter, HomePageActiveFilter.class)
                 .addFilterAfter(alreadyAuthenticatedFilter, JwtAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints - health check and authentication endpoints

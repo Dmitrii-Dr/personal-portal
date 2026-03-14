@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/api/v1/session/booking")
+@RequestMapping("/api/v1/user/session/booking")
 public class BookingController {
 
 	private final BookingService bookingService;

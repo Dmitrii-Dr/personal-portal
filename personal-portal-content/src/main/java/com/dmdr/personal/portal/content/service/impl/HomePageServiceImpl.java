@@ -6,6 +6,7 @@ import com.dmdr.personal.portal.content.model.Contact;
 import com.dmdr.personal.portal.content.model.HomePage;
 import com.dmdr.personal.portal.content.repository.HomePageRepository;
 import com.dmdr.personal.portal.content.service.HomePageService;
+import com.dmdr.personal.portal.core.state.HomePageActiveHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +69,11 @@ public class HomePageServiceImpl implements HomePageService {
         }
         if (request.getExtendedParameters() != null) {
             homePage.setExtendedParameters(request.getExtendedParameters());
+        }
+        if (request.getIsActive() != null) {
+            boolean newIsActive = request.getIsActive();
+            homePage.setActive(newIsActive);
+            HomePageActiveHolder.setActive(newIsActive);
         }
         if (request.getContact() != null) {
             List<Contact> contacts = request.getContact().stream()

@@ -12,11 +12,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/home")
-public class AdminInfoController {
+public class AdminHomeController {
 
     private final HomePageService homePageService;
 
-    public AdminInfoController(HomePageService homePageService) {
+    public AdminHomeController(HomePageService homePageService) {
         this.homePageService = homePageService;
     }
 

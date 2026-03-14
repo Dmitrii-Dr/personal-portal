@@ -80,6 +80,9 @@ public class HomePage {
     @Column(name = "extended_parameters", columnDefinition = "jsonb")
     private Map<String, String> extendedParameters = new HashMap<>();
 
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = false;
+
     @ElementCollection
     @CollectionTable(name = "home_page_contact", joinColumns = @JoinColumn(name = "home_page_id"))
     private List<Contact> contact = new ArrayList<>();

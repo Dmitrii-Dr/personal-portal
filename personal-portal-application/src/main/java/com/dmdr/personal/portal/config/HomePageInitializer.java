@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.config;
 
 import com.dmdr.personal.portal.content.service.HomePageService;
+import com.dmdr.personal.portal.core.state.HomePageActiveHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -21,10 +22,11 @@ public class HomePageInitializer implements CommandLineRunner {
     public void run(String... args) {
         try {
             homePageService.initializeDefaultHomePageIfNotExists();
+            boolean isActive = homePageService.getHomePage().isActive();
+            HomePageActiveHolder.setActive(isActive);
             log.info("HomePage initialized successfully");
         } catch (Exception e) {
             log.error("Failed to initialize HomePage", e);
         }
     }
 }
-

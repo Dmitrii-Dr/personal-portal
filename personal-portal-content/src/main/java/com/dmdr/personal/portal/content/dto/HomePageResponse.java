@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.content.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -24,5 +25,7 @@ public class HomePageResponse {
     private String reviewMessage;
     private List<UUID> reviewMediaIds;
     private Map<String, String> extendedParameters;
+    @JsonProperty("isActive")
+    private boolean isActive;
     private List<ContactDto> contact;
 }

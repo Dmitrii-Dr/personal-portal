@@ -25,7 +25,15 @@ public class InfoController {
     @GetMapping("/welcome")
     public ResponseEntity<HomePageResponse> getWelcomeInfo() {
         HomePage homePage = homePageService.getHomePage();
-        HomePageResponse response = toHomePageResponse(homePage);
+        HomePageResponse response = null;
+        if(homePage.isActive()){
+            response = toHomePageResponse(homePage);
+        }
+        else {
+            response = new HomePageResponse();
+            response.setActive(false);
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -43,6 +51,7 @@ public class InfoController {
         response.setReviewMessage(homePage.getReviewMessage());
         response.setReviewMediaIds(homePage.getReviewMediaIds());
         response.setExtendedParameters(homePage.getExtendedParameters());
+        response.setActive(homePage.isActive());
         if (homePage.getContact() != null) {
             List<ContactDto> contactDtos = homePage.getContact().stream()
                     .map(contact -> new ContactDto(contact.getPlatform(), contact.getValue(), contact.getDescription()))
