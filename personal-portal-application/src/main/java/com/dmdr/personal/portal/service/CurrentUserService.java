@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.service;
 
+import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.service.UserService;
 import org.springframework.security.core.Authentication;
@@ -27,5 +28,18 @@ public class CurrentUserService {
         UUID userId = UUID.fromString(userIdRaw);
         return userService.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+    }
+
+    public boolean isCurrentUserAdmin() {
+        try {
+            User user = getCurrentUser();
+            if (user.getRoles() == null) {
+                return false;
+            }
+            return user.getRoles().stream()
+                    .anyMatch(role -> SystemRole.ADMIN.getAuthority().equals(role.getName()));
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 }

@@ -4,6 +4,9 @@ import com.dmdr.personal.portal.content.dto.ContactDto;
 import com.dmdr.personal.portal.content.dto.HomePageResponse;
 import com.dmdr.personal.portal.content.model.HomePage;
 import com.dmdr.personal.portal.content.service.HomePageService;
+import com.dmdr.personal.portal.core.security.SystemRole;
+import com.dmdr.personal.portal.service.CurrentUserService;
+import com.dmdr.personal.portal.users.model.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,19 +20,20 @@ import java.util.Map;
 public class InfoController {
 
     private final HomePageService homePageService;
+    private final CurrentUserService currentUserService;
 
-    public InfoController(HomePageService homePageService) {
+    public InfoController(HomePageService homePageService, CurrentUserService currentUserService) {
         this.homePageService = homePageService;
+        this.currentUserService = currentUserService;
     }
 
     @GetMapping("/welcome")
     public ResponseEntity<HomePageResponse> getWelcomeInfo() {
         HomePage homePage = homePageService.getHomePage();
-        HomePageResponse response = null;
-        if(homePage.isActive()){
+        HomePageResponse response;
+        if (homePage.isActive() || currentUserService.isCurrentUserAdmin()) {
             response = toHomePageResponse(homePage);
-        }
-        else {
+        } else {
             response = new HomePageResponse();
             response.setActive(false);
         }

@@ -8,6 +8,7 @@ public enum PortalErrorCode {
     VERIFICATION_CODE_RATE_LIMITED("PEC-414", 400, "Too much verification code request. Verification code rate limited"),
     FILE_TOO_LARGE("PEC-415", 413, "File exceeds the maximum allowed size of 3MB."),
     PORTAL_INACTIVE("PEC-416", 500, "Portal is inactive."),
+    AVAILABILITY_OVERRIDE_OVERLAPS_ACTIVE_RULE("PEC-417", 400, "Availability override overlaps with active working hours."),
 
     UNEXPECTED_SERVER_ERROR("PEC-500", 500, "Unexpected server error.");
     private final String code;

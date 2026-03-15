@@ -3,6 +3,8 @@ package com.dmdr.personal.portal.booking.service.impl;
 import com.dmdr.personal.portal.booking.model.AvailabilityRule;
 import com.dmdr.personal.portal.booking.repository.AvailabilityRuleRepository;
 import com.dmdr.personal.portal.core.model.TimezoneEntry;
+import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
+import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -66,10 +68,7 @@ public class AvailabilityOverrideValidator {
 			// If override extends availability (isAvailable = true), there must be NO
 			// overlapping rules
 			if (!trulyOverlappingRules.isEmpty()) {
-				throw new IllegalArgumentException(
-						"Cannot create override with isAvailable=true: it overlaps with " +
-								trulyOverlappingRules.size() + " ACTIVE availability rule(s). " +
-								"Overrides that extend availability cannot overlap with existing working hours.");
+				throw new PersonalPortalRuntimeException(PortalErrorCode.AVAILABILITY_OVERRIDE_OVERLAPS_ACTIVE_RULE);
 			}
 		} else {
 			// If override reduces availability (isAvailable = false), there must be AT
