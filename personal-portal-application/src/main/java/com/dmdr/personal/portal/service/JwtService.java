@@ -69,11 +69,11 @@ public class JwtService {
         return UUID.fromString(extractClaims(token).getSubject());
     }
 
-    public UUID extractSessionId(String token) {
-        Claims claims = extractClaims(token);
-        String sessionId = claims.get("sid", String.class);
-        return sessionId == null ? null : UUID.fromString(sessionId);
-    }
+    // public UUID extractSessionId(String token) {
+    //     Claims claims = extractClaims(token);
+    //     String sessionId = claims.get("sid", String.class);
+    //     return sessionId == null ? null : UUID.fromString(sessionId);
+    // }
 
     public String extractSubject(String token) {
         return extractClaims(token).getSubject();

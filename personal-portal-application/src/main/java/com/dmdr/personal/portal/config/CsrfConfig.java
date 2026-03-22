@@ -36,6 +36,11 @@ public class CsrfConfig {
         PathPatternRequestMatcher.Builder matcherBuilder = PathPatternRequestMatcher.withDefaults();
         RequestMatcher refreshEndpoint = matcherBuilder.matcher(HttpMethod.POST, "/api/v1/auth/refresh");
         RequestMatcher logoutEndpoint = matcherBuilder.matcher(HttpMethod.POST, "/api/v1/auth/logout");
-        return RequestMatchers.anyOf(refreshEndpoint, logoutEndpoint);
+        RequestMatcher csrfRequiredPaths = RequestMatchers.anyOf(refreshEndpoint, logoutEndpoint);
+        // Explicitly exclude SBA/actuator so embedded client can register (POST without CSRF token)
+        RequestMatcher sbaPaths = RequestMatchers.anyOf(
+                matcherBuilder.matcher("/admin/sba/instances/**"),
+                matcherBuilder.matcher("/actuator/**"));
+        return RequestMatchers.allOf(csrfRequiredPaths, RequestMatchers.not(sbaPaths));
     }
 }

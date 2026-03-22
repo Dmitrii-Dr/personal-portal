@@ -24,6 +24,7 @@
 		<module>personal-portal-content</module>
 		<module>personal-portal-booking</module>
 		<module>personal-portal-application</module>
+		<module>personal-portal-admin</module>
 	</modules>
 
 	<dependencyManagement>
@@ -44,6 +45,16 @@
 				<groupId>software.amazon.awssdk</groupId>
 				<artifactId>s3</artifactId>
 				<version>2.39.2</version>
+			</dependency>
+			<dependency>
+				<groupId>de.codecentric</groupId>
+				<artifactId>spring-boot-admin-starter-server</artifactId>
+				<version>3.4.4</version>
+			</dependency>
+			<dependency>
+				<groupId>de.codecentric</groupId>
+				<artifactId>spring-boot-admin-starter-client</artifactId>
+				<version>3.4.4</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

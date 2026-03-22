@@ -9,6 +9,7 @@ COPY personal-portal-core/pom.xml ./personal-portal-core/
 COPY personal-portal-users/pom.xml ./personal-portal-users/
 COPY personal-portal-content/pom.xml ./personal-portal-content/
 COPY personal-portal-booking/pom.xml ./personal-portal-booking/
+COPY personal-portal-admin/pom.xml ./personal-portal-admin/
 COPY personal-portal-application/pom.xml ./personal-portal-application/
 
 # Copy Maven wrapper (if exists)
