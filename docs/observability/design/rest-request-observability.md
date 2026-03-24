@@ -57,7 +57,7 @@ If new routes are added under `/admin/` that are not SBA, the **errors-only** ru
 ### Out of scope (for this design iteration)
 
 - Full distributed tracing (trace IDs, spans across services) — can be added later if the monolith splits or you adopt OpenTelemetry.
-- Storing request/response bodies (privacy, size, compliance).
+- Storing response bodies (privacy, size, compliance).
 - Real-time alerting rules (can consume the same DB or metrics later).
 
 ### Repository context
@@ -72,7 +72,7 @@ If new routes are added under `/admin/` that are not SBA, the **errors-only** ru
 
 | Goal | Mechanism |
 |------|-----------|
-| Persist every in-scope API request log | Async enqueue + insert: one `RequestLog` row per completed request (after response visible to filter), except where prefix rules skip success. |
+| Persist every in-scope API request log | Async enqueue + buffered batch insert: one `RequestLog` row per completed request (after response visible to filter), except where prefix rules skip success. Flush is triggered by configurable batch size or max flush interval. |
 | Success vs error counts | From HTTP `status` and exception mapping; mirrored in **daily** aggregates with **auth (401/403)** split from **other 4xx**. |
 | Retention by outcome | Purge **success** detail rows older than **7** days; **failure** rows older than **30** days. |
 | Long-horizon stability | **Daily** aggregate rows keyed by **`templatePath`** + **method**, retained **indefinitely**. |
@@ -83,8 +83,10 @@ If new routes are added under `/admin/` that are not SBA, the **errors-only** ru
 ## 5. Non-goals and constraints
 
 - **No personal data in logs:** use **`userId`** (Long, nullable) only; do not store email, name, or free-text identifiers.
+- **Request body capture:** persist only sanitized JSON request bodies with sensitive fields masked (for example password/token/email/phone/name/address/birthDate); never persist raw personal data.
+- **Header metadata capture:** persist sanitized request/response headers; sensitive headers (for example authorization, cookies, API keys, forwarding/IP headers) must be redacted before persistence.
 - **Cardinality:** aggregates **must** use **`templatePath`** (same semantics as MVC pattern), not raw `path`.
-- **Volume:** asynchronous persistence and/or batch inserts so request threads are not blocked on DB I/O; **occasional loss** on failure is acceptable.
+- **Volume:** asynchronous buffered batch persistence so request threads are not blocked on DB I/O; flush policy must be configurable by both message count and max buffered time; **occasional loss** on failure is acceptable.
 - **404 / unmatched routes:** capture at servlet filter when needed; `templatePath` may be sentinel (e.g. `UNKNOWN`) if no handler matched.
 - **Stack traces in DB:** can be large; consider a **max length** in implementation if operations cap row size (not locked here).
 
@@ -381,7 +383,17 @@ Expose a **secured**, **read-only** REST surface (under `/api/v1/admin/...` or a
 - **No** create/update/delete of logs via API.
 - **Authorize** strictly (e.g. admin role only).
 
-Aggregates endpoint (optional in same phase): query by `templatePath` + day range for dashboards.
+Aggregates endpoint:
+
+- `GET /api/v1/admin/observability/endpoint-stats/period`
+- Required params: `from`, `to` (inclusive `LocalDate` range).
+- Optional multi-value filters: `methods`, `templatePaths` (null/omitted means not filtered).
+- Range rule: `from <= to` and the requested range must be no more than **one calendar month** (for example, `2026-08-15` to `2026-09-15` is valid).
+- Grouping behavior:
+  - when both `methods` and `templatePaths` are provided, group by `method + templatePath`,
+  - when only `methods` are provided, group by `method` and ignore path dimension,
+  - when only `templatePaths` are provided, group by `templatePath` and ignore method dimension.
+- For each group, return summed counters across matched daily rows: `total_count`, `success_count`, `auth_error_count`, `client_error_count`, `server_error_count`, `other_non_success_count`.
 
 ---
 

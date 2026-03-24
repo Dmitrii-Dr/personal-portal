@@ -23,7 +23,8 @@ Add a `@ConfigurationProperties` prefix (or equivalent binding) for observabilit
 
 - Retention windows: `observability.request-log.retention-success-days`, `observability.request-log.retention-failure-days`.
 - Job schedules: `observability.request-log.retention-cron`, `observability.request-log.rollup-cron` (use explicit **zone**, e.g. `UTC`, on `@Scheduled`).
-- Async writer: `observability.request-log.async-core-pool-size`, `async-max-pool-size`, `async-queue-capacity` (and reject policy if not fixed in code).
+- Async writer: `observability.request-log.async-core-pool-size`, `async-max-pool-size`, `async-queue-capacity`,
+  plus flush controls `async-flush-batch-size` and `async-flush-interval-ms` (and reject policy if not fixed in code).
 - Optional: static-resource detection toggles; stack-trace max length should stay in sync with `StackTraceTruncator` (Phase B2a).
 
 **Deliverable:** bound properties class + documented defaults in `application.properties` (or profile-specific files). Enable async/scheduling on the configuration class that declares the executor bean (e.g. `@EnableAsync`, `@EnableScheduling`).
@@ -40,6 +41,8 @@ public class RequestLogObservabilityProperties {
     int asyncCorePoolSize = 2;
     int asyncMaxPoolSize = 4;
     int asyncQueueCapacity = 1000;
+    int asyncFlushBatchSize = 100;
+    long asyncFlushIntervalMs = 1000;
 }
 ```
 
@@ -53,6 +56,8 @@ observability.request-log.rollup-cron=0 0 * * * *
 observability.request-log.async-core-pool-size=2
 observability.request-log.async-max-pool-size=4
 observability.request-log.async-queue-capacity=1000
+observability.request-log.async-flush-batch-size=100
+observability.request-log.async-flush-interval-ms=1000
 ```
 
 ---
@@ -73,7 +78,7 @@ Create a versioned migration **before** any code that writes rows.
 | `method` | `VARCHAR(16) NOT NULL` | HTTP method |
 | `status` | `INTEGER NOT NULL` | final HTTP status |
 | `duration_ms` | `BIGINT NOT NULL` | wall-clock latency |
-| `user_id` | `BIGINT` | nullable; internal numeric id only |
+| `user_id` | `UUID` | nullable; internal user uuid id only |
 | `created_at` | `TIMESTAMPTZ NOT NULL` | store **UTC**; document for operators |
 | `error_code` | `VARCHAR(128)` | nullable |
 | `error_message` | `TEXT` | nullable |
@@ -91,9 +96,9 @@ Create a versioned migration **before** any code that writes rows.
 
 ### Step A3 — Flyway: daily aggregate table
 
-Single primary rollup table, e.g. `endpoint_request_stats_daily` or shorter `endpoint_stats` (name is implementation choice; **keep stable once chosen**).
+Single primary rollup table, `endpoint_stats` .
 
-**Naming:** e.g. `V{next}__create_endpoint_request_stats_daily.sql` (or match chosen table name).
+**Naming:** e.g. `V{next}__create_endpoint_stats.sql`.
 
 **Logical key:** `(bucket_start, method, template_path)` with a **UNIQUE** constraint.
 
@@ -108,8 +113,6 @@ Single primary rollup table, e.g. `endpoint_request_stats_daily` or shorter `end
 - `client_error_count` BIGINT (other 4xx)
 - `server_error_count` BIGINT (5xx)
 - `other_non_success_count` BIGINT (3xx, 1xx, odd codes per design)
-- `sum_duration_ms` BIGINT
-- `max_duration_ms` BIGINT
 
 **Deliverable:** Flyway migration + unique constraint; optional supporting index on `(bucket_start, template_path)` for dashboard queries.
 
@@ -153,12 +156,8 @@ public class EndpointRequestStatsDailyEntity {
     private long clientErrorCount;
     private long serverErrorCount;
     private long otherNonSuccessCount;
-    private long sumDurationMs;
-    private long maxDurationMs;
 }
 ```
-
-**Note:** If using composite natural key, align `@IdClass` / `@EmbeddedId` with the unique constraint.
 
 ---
 
@@ -200,6 +199,13 @@ public interface EndpointRequestStatsDailyRepository extends JpaRepository<Endpo
 ## Phase B — Pure classification and routing rules (test-first)
 
 These components have **no servlet dependencies** so they can be unit-tested early.
+
+Implementation status (`personal-portal-admin`):
+- Implemented `HttpOutcomeBucket`, `HttpOutcomeClassifier`, `RequestLogOutcomeClass`, `RequestLogOutcomeClassifier`.
+- Implemented `StackTraceTruncator` (`MAX_BYTES = 65_536`, marker `\n... [truncated]`).
+- Implemented `RequestLoggingPathPolicy` + `DefaultRequestLoggingPathPolicy` using internal default path/suffix lists.
+- Added `TemplatePathResolver` contract with sentinel constant `UNKNOWN`.
+- Added unit tests for classifier matrix, success predicate, outcome class mapping, stack-trace truncation boundaries, and policy matrix (including `/admin/**` success-skip vs error capture behavior).
 
 ### Step B1 — HTTP outcome classification
 
@@ -290,7 +296,7 @@ public interface RequestLoggingPathPolicy {
 }
 ```
 
-**Suggested implementation class:** `DefaultRequestLoggingPathPolicy` with injected lists/suffixes from properties.
+**Suggested implementation class:** `DefaultRequestLoggingPathPolicy` with internal defaults (or injected lists/suffixes from properties if runtime configurability is needed).
 
 **Tests:** matrix for `/api/v1/...`, `/admin/...`, `/actuator/...`, static-like paths. Include **admin success vs error** explicitly, e.g. `/admin/sba/...` with 200 → no capture (when policy says success skip); same path with 5xx → capture. Confirm `/api/v1/admin/...` is **not** treated as Spring Boot Admin UI path if your policy only skips `/admin/**` for embedded admin (align with design §2.1).
 
@@ -314,6 +320,15 @@ public interface TemplatePathResolver {
 
 ## Phase C — Capture pipeline (servlet filter + async writer)
 
+Implementation status (`personal-portal-admin`):
+- Implemented `RequestLogCaptureContext` request-scoped holder with `attach(...)` / `current(...)` and `startedAt`.
+- Added `RequestLogAttributes` constants for `CAPTURE_CONTEXT`, `ERROR_CODE`, `ERROR_MESSAGE`, `STACK_TRACE`.
+- Implemented thin error enrichment contract `RequestLogErrorContext` with request-attribute-based implementation `RequestAttributeRequestLogErrorContext`.
+- `RequestAttributeRequestLogErrorContext` truncates stack traces via `StackTraceTruncator.truncate(...)` before storing values.
+- Added `ObservabilityErrorAttributesExceptionResolver` (highest precedence, non-terminal) that records request-log error attributes for MVC exceptions before normal handler resolution continues.
+- Implemented `RequestLogUserIdResolver` as `SecurityContextRequestLogUserIdResolver` returning authenticated `UUID` user id (or `null` when anonymous/malformed).
+- Added unit tests for context attachment/readout and error enrichment attribute propagation/truncation behavior.
+
 ### Step C1 — Request-scoped capture context
 
 Store **start time** and any **pre-response** fields without blocking the response.
@@ -331,9 +346,9 @@ public final class RequestLogCaptureContext {
 
 ---
 
-### Step C2 — Error enrichment hook (exception handler integration)
+### Step C2 — Error enrichment hook (exception resolver + advice integration)
 
-Global errors should populate `errorCode`, `errorMessage`, `stackTrace` on the same logical record. Prefer **request attributes** set by `@RestControllerAdvice` and read by the filter after response commit.
+Global errors should populate `errorCode`, `errorMessage`, `stackTrace` on the same logical record. Use **request attributes** populated by the exception path and read by the filter after response commit.
 
 **Suggested attribute keys:** e.g. `RequestLogAttributes.ERROR_CODE`, etc.
 
@@ -350,9 +365,11 @@ public interface RequestLogErrorContext {
 - Truncate via `StackTraceTruncator.truncate(...)` (B2a) before the value lands on `RequestLogRecord` / persistence.
 - Do not store PII in `message` beyond what existing API error bodies already expose (design §5).
 
-**Coverage note:** failures that never reach `@RestControllerAdvice` (e.g. Spring Security 401/403, some filter errors) will have null `errorCode` / `errorMessage` / `stackTrace`; the row should still be written with the final HTTP status — acceptable per design.
+**Implemented fallback:** `ObservabilityErrorAttributesExceptionResolver` now records `errorMessage` + `stackTrace` for any MVC exception (for example argument binding/conversion failures) and returns `null` so the regular resolver chain still produces the API response. This removes the previous gap where stack traces were logged but not persisted.
 
-**Coordination task:** enumerate `GlobalExceptionHandler` branches and ensure each mapped error sets code/message consistently (inject the thin `RequestLogErrorContext` or write the same request attributes the filter reads).
+**Coverage note:** failures that never reach Spring MVC exception resolution (e.g. some Security 401/403 paths, low-level filter errors) can still have null `errorCode` / `errorMessage` / `stackTrace`; the row should still be written with the final HTTP status — acceptable per design.
+
+**Coordination task (remaining):** enumerate `GlobalExceptionHandler` branches and ensure each mapped error sets canonical `errorCode` consistently (fallback resolver guarantees stack trace capture but uses `null` error code by default).
 
 ---
 
@@ -360,11 +377,11 @@ public interface RequestLogErrorContext {
 
 ```java
 public interface RequestLogUserIdResolver {
-    Long resolveUserId(HttpServletRequest request);
+    UUID resolveUserId(HttpServletRequest request);
 }
 ```
 
-**Implementation:** read `SecurityContext` / JWT principal → internal numeric `userId` only; return `null` when anonymous.
+**Implementation:** read `SecurityContext` / JWT principal → internal `UUID userId`; return `null` when anonymous.
 
 ---
 
@@ -379,10 +396,13 @@ public record RequestLogRecord(
     String method,
     int status,
     long durationMs,
-    Long userId,
+    UUID userId,
     Instant createdAt,
     String errorCode,
     String errorMessage,
+    String requestBody, // sanitized JSON only; sensitive fields masked
+    String requestHeaders, // sanitized headers JSON; sensitive values redacted
+    String responseHeaders, // sanitized headers JSON; sensitive values redacted
     String stackTrace
 ) {}
 ```
@@ -412,13 +432,23 @@ public interface RequestLogPersistenceGateway {
 
 **Bean lifecycle:** graceful shutdown: attempt to drain or log dropped backlog size (best-effort).
 
+**Current implementation (personal-portal-admin):**
+
+- `DefaultRequestLogRecordFactory` builds `RequestLogRecord` from servlet request/response + `RequestLogCaptureContext`.
+- `AsyncRequestLogPersistenceGateway` buffers request logs in memory and flushes batches to `RequestLogWriter`
+  when either flush threshold is reached:
+  - batch size threshold (`observability.request-log.async-flush-batch-size`)
+  - max buffered time threshold (`observability.request-log.async-flush-interval-ms`)
+- Executor rejection strategy is `ThreadPoolExecutor.DiscardPolicy` (best-effort drop under pressure).
+- Unexpected service failure/restart may lose queued in-memory log records by design (accepted for v1).
+
 ---
 
 ### Step C6 — Writer service (entity mapping + save)
 
 ```java
 public interface RequestLogWriter {
-    void persist(RequestLogRecord record);
+    void persistBatch(List<RequestLogRecord> records);
 }
 ```
 
@@ -426,9 +456,16 @@ public interface RequestLogWriter {
 
 - Map `RequestLogRecord` → `RequestLogEntity`
 - Set `createdAt` to UTC clock
-- Invoke `RequestLogRepository.save` (or batch later)
+- Invoke batched persistence (`RequestLogRepository.saveAll`) for flush batches
 
 **Deliverable:** one row per eligible completed request under integration test conditions (Phase F).
+
+**Current implementation (personal-portal-admin):**
+
+- Implemented `RequestLogWriter` with `RepositoryRequestLogWriter`.
+- `RepositoryRequestLogWriter` maps `RequestLogRecord` to `RequestLogEntity`.
+- `createdAt` is assigned from injected UTC clock (`Clock.systemUTC()` bean).
+- Persist path uses `RequestLogRepository.saveAll(...)` on flushed batches.
 
 ---
 
@@ -453,14 +490,33 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 6. If static skip → skip enqueue.
 7. Build `RequestLogRecord` → `persistenceGateway.enqueue`.
 
-**Do not** persist query strings (design §17).
+**Do not** persist query strings (design §17). Persist request body only after sanitization/masking.
+
+**Current implementation (personal-portal-admin):**
+
+- Added `RequestLoggingFilter` (`OncePerRequestFilter`) that:
+  - bypasses non-captured paths via `RequestLoggingPathPolicy.shouldCaptureAtAll(...)`,
+  - attaches `RequestLogCaptureContext` before `chain.doFilter(...)`,
+  - finalizes in `finally` (after response) and merges request error attributes into capture context,
+  - skips `/admin/**` successful responses via `shouldSkipSuccess(...)` + `HttpOutcomeClassifier.isSuccess(...)`,
+  - skips static assets via `isProbablyStaticAsset(...)`,
+  - builds `RequestLogRecord` using `RequestLogRecordFactory` and enqueues via `RequestLogPersistenceGateway`.
+- Uses `request.getRequestURI()` for persisted path input, so query strings are not persisted.
 
 ---
 
 ### Step C8 — Spring registration
 
-- Declare `RequestLoggingFilter` as a `@Bean` with `FilterRegistrationBean` **or** register via `SecurityFilterChain` if that is the project norm.
+- Register `RequestLoggingFilter` as a Spring bean (component or `@Bean`) and wire a `FilterRegistrationBean` **or** register via `SecurityFilterChain` if that is the project norm.
 - Ensure `/actuator/**` bypasses logging by policy (not only by security).
+
+**Current implementation (personal-portal-admin):**
+
+- `RequestLoggingFilter` is declared as a component bean and still registered explicitly via `FilterRegistrationBean` in `RequestLogObservabilityAutoConfiguration`.
+- Registered `FilterRegistrationBean<RequestLoggingFilter>` with:
+  - URL pattern `/*`,
+  - explicit order `-90` (documented as after Spring Security delegated filter default `-100`, while still early in the servlet chain).
+- `/actuator/**` bypass remains enforced by `RequestLoggingPathPolicy` default no-capture prefixes.
 
 ---
 
@@ -469,6 +525,8 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 ### Step D1 — Retention purge job
 
 **Scheduler:** `@Scheduled` with cron from A1 (default daily **02:00 UTC**); always set `zone = "UTC"` (or equivalent) so cutoffs match operator docs.
+
+**Status:** Implemented in `personal-portal-admin` with `RequestLogRetentionScheduler` + `BatchedRequestLogRetentionService`.
 
 **Service:**
 
@@ -486,6 +544,15 @@ public interface RequestLogRetentionService {
 
 **Implementation:** delegate to `RequestLogRepository` `@Modifying` deletes (A5) with `Instant` cutoffs computed in the service, or equivalent Criteria bulk delete.
 
+**Performance guardrails (implemented):**
+
+- Purge runs in bounded batches (`observability.request-log.retention-delete-batch-size`, default `500`) instead of one large delete.
+- Each scheduler execution is capped (`observability.request-log.retention-max-batches-per-run`, default `200`) to avoid sustained DB spikes.
+- Repository delete SQL uses `DELETE ... WHERE ctid IN (SELECT ... ORDER BY created_at LIMIT :batchSize)` so each statement remains small and predictable.
+- Failure cleanup is split into two status ranges (`status >= 300` and `status < 200`) to avoid a wide `OR` predicate that can degrade index usage.
+- Existing index `idx_request_log_status_created_at(status, created_at)` is used for candidate scan order; no aggregate table writes/deletes are performed here.
+- No cascade-heavy deletes are triggered by retention: `request_log` references `users` with `ON DELETE SET NULL` (reverse direction), so deleting request-log rows does not fan out.
+
 **Optional schema shortcut:** add generated column or persisted enum `outcome_class` in a follow-up migration if status-based deletes become awkward — only if needed.
 
 ---
@@ -500,32 +567,64 @@ public interface EndpointRequestStatsRollupService {
 }
 ```
 
-**Idempotency strategies (pick one):**
+**Recommended solution (selected): high-water mark checkpoint table**
 
-- **High-water mark** table `observability_rollup_checkpoint(last_request_log_id)` or reuse a row in a generic `app_checkpoint` table.
-- Or **upsert** counts using deterministic keys `(bucket_start, method, template_path)` and **reprocess** a window with transactional boundaries (heavier).
+Use a dedicated checkpoint row (or `app_checkpoint` key) to store one global cursor for this job, e.g.:
+
+- `job_name = 'endpoint_stats_rollup'`
+- `last_processed_request_log_id BIGINT NOT NULL`
+- `updated_at TIMESTAMP`
+
+
+**Exactly-once behavior (transactional invariant):**
+
+- Read checkpoint `N`.
+- Fetch `request_log` rows with `id > N` ordered by `id` (bounded batch).
+- Aggregate deltas in memory by `(bucket_start, method, template_path)` and outcome bucket.
+- Upsert all affected daily aggregate rows.
+- Update checkpoint to max processed id `M`.
+- Commit once.
+
+If the service crashes before commit, both aggregate writes and checkpoint update are rolled back. On restart, job retries from `N` without double counting or data loss.
+
+**Startup/recovery rule:**
+
+- On startup, read checkpoint from DB.
+- If no checkpoint exists, initialize once with `last_processed_request_log_id = 0` (or bootstrap value by policy) and continue.
+- Continue normal scheduled execution; no special "current period row scan" is required.
 
 **Processing window:** e.g. hourly batch of new `RequestLogEntity` rows since last id; for each row, classify bucket, update or insert aggregate row:
 
 - Increment counters
-- `sum_duration_ms += duration`
-- `max_duration_ms = max(max, duration)`
+- Ensure current UTC day contains a row for every known `(method, template_path)` pair. If a pair has no requests today, create a zero-valued row so daily row count remains stable across no-traffic days.
 
-**Schedule:** default **hourly** (rollup cron from A1, e.g. top of each hour UTC); daily is acceptable if design allows more lag — document lag vs real-time dashboards.
-
-**Deliverable:** invariant — for a synthetic batch, sums match classifications.
+**Schedule:** default **hourly** (rollup cron from A1, e.g. top of each hour UTC);
 
 ---
 
 ### Step D3 — `@EnableScheduling` and properties
 
-Wire cron/fixed delays via A1 properties; guard with a feature flag property if desired for staged rollout. Keep `@EnableScheduling` / `@EnableAsync` co-located with observability configuration (see A1) so jobs and the writer start together.
+Implemented in `personal-portal-admin`:
+
+- `@EnableScheduling` and `@EnableAsync` are co-located in `RequestLogObservabilityAutoConfiguration`.
+- Most observability implementations are now class-level beans (`@Service`/`@Component`) instead of factory methods in auto-configuration.
+- Retention and rollup schedulers use cron properties:
+  - `observability.request-log.retention-cron`
+  - `observability.request-log.rollup-cron`
+- Both schedulers run with `zone = "UTC"` on `@Scheduled`.
+- Feature flags are wired for staged rollout via `@ConditionalOnProperty` on scheduler classes:
+  - `observability.request-log.retention-job-enabled` (default `true`)
+  - `observability.request-log.rollup-job-enabled` (default `true`)
+
+Result: jobs and async writer are started by the same observability auto-configuration, and either scheduled job can be disabled without changing code.
 
 ---
 
 ## Phase E — Read-only admin API
 
 ### Step E1 — Query object + specifications
+
+**Decision:** use `Instant from` / `Instant to` as the canonical time filter for Phase E.
 
 ```java
 public record RequestLogQuery(
@@ -534,14 +633,13 @@ public record RequestLogQuery(
     Integer status,
     String templatePath,
     String method,
-    Long userId,
+    UUID userId,
     String errorCodeContains,
     String errorMessageContains,
     Pageable pageable
 ) {}
 ```
 
-**Alternative query shape:** bind **inclusive calendar days** as `LocalDate dateFrom` / `dateTo` in a separate params object and convert to `Instant` range (`dateFrom` at start of day UTC through `dateTo+1` start exclusive) — matches operator mental model.
 
 ```java
 public interface RequestLogQueryService {
@@ -550,7 +648,7 @@ public interface RequestLogQueryService {
 }
 ```
 
-**Note:** for text search, prefer `LIKE` with limits or full-text later; enforce max time range and max page size (e.g. cap at 100) to protect DB.
+**Note:** for text search, prefer `LIKE` with limits or full-text later; enforce max time range and max page size (cap `size` at 100) to protect DB. Also enforce a deterministic default sort (e.g. `createdAt DESC, id DESC`).
 
 ---
 
@@ -566,7 +664,7 @@ public record RequestLogListItemResponse(
     String method,
     int status,
     long durationMs,
-    Long userId,
+    UUID userId,
     Instant createdAt,
     String errorCode,
     String errorMessage
@@ -581,7 +679,7 @@ public record RequestLogDetailResponse(
     String method,
     int status,
     long durationMs,
-    Long userId,
+    UUID userId,
     Instant createdAt,
     String errorCode,
     String errorMessage,
@@ -605,7 +703,7 @@ public interface RequestLogAdminMapper {
 ```java
 @RestController
 @RequestMapping("/api/v1/admin/observability/request-logs")
-@PreAuthorize("hasRole('ADMIN')") // example — align with project admin security
+// URL path should stay under /api/v*/admin/** so existing admin security matcher applies.
 public class RequestLogAdminController {
 
     @GetMapping
@@ -616,7 +714,7 @@ public class RequestLogAdminController {
 }
 ```
 
-**Query params:** map to `RequestLogQuery` (or day-based params) in the controller; delegate to `RequestLogQueryService` and mappers. Return **404** when `id` missing.
+**Query params:** map `from` / `to` (+ optional filters) to `RequestLogQuery` in the controller; delegate to `RequestLogQueryService` and mappers. Return **404** when `id` missing.
 
 **Authorization:** admin-only — method- or class-level security consistent with other admin controllers.
 
@@ -625,6 +723,10 @@ public class RequestLogAdminController {
 ---
 
 ### Step E4 — Optional aggregates read endpoint
+
+**Implemented endpoint (Phase E):** `GET /api/v1/admin/observability/endpoint-stats`
+with optional filters `from` (`LocalDate`), `to` (`LocalDate`), `method`, `templatePath`,
+plus pageable params. Page size is capped at `100`; invalid `from > to` returns `400`.
 
 ```java
 public record EndpointStatsDailyResponse(
@@ -636,99 +738,10 @@ public record EndpointStatsDailyResponse(
     long authErrorCount,
     long clientErrorCount,
     long serverErrorCount,
-    long otherNonSuccessCount,
-    long sumDurationMs,
-    long maxDurationMs
+    long otherNonSuccessCount
 ) {}
 ```
 
 Expose read-only listing with pagination or capped result set. **Never** return JPA entities from these endpoints — use `EndpointStatsDailyResponse` (or equivalent) only.
 
 ---
-
-## Phase F — Testing and verification (ordered)
-
-### Unit tests
-
-| Component | Scenarios |
-|-----------|-----------|
-| `HttpOutcomeClassifier` | See B1 matrix; include edge codes (204, 301, 404, 503). |
-| `RequestLogOutcomeClassifier` | 2xx → `SUCCESS`; 401 → `FAILURE`; 500 → `FAILURE`. |
-| `StackTraceTruncator` | null → null; short → unchanged; exactly `MAX_BYTES` → unchanged; over cap → truncated with marker. |
-| `RequestLoggingPathPolicy` | `/actuator/health` → no capture; `/admin/...` 200 → skip success; `/admin/...` 5xx → capture; `/api/v1/admin/...` 200 → capture if policy only targets `/admin/**` for embedded admin. |
-| `TemplatePathResolver` | attribute present → pattern; absent → `UNKNOWN`. |
-| Entity mapping (`RequestLogRecord` / event → entity) | All fields preserved; timestamps UTC. |
-| Rollup mapping | Each `HttpOutcomeBucket` increments the correct aggregate counter on `EndpointRequestStatsDailyEntity`. |
-
-### Integration tests
-
-| Scenario | Expected |
-|----------|----------|
-| Authenticated `POST /api/v1/auth/login` → 200 | One `request_log` row; `status=200`; error fields null. |
-| Same login → 401 | One row; `status=401`; error fields may be null if not from advice. |
-| `GET /actuator/health` | Zero rows. |
-| `GET /admin/...` → 200 (per policy) | Zero rows. |
-| `GET /admin/...` → 500 | One row; `status=500`. |
-| `GET /api/v1/nonexistent` → 404 | One row; `templatePath` sentinel (e.g. `UNKNOWN`). |
-| Controller-mapped exception → 4xx/422 with body | One row; non-null `errorCode` / `errorMessage` / truncated `stackTrace` when advice wired. |
-| Retention job | Success rows older than success window deleted; failures older than failure window deleted; recent rows and aggregate table untouched. |
-| Rollup job | Counts match classified rows for a synthetic day; second run **idempotent** (same totals). |
-| Admin API without admin role | 403. |
-| Admin list with `status=500` | Only matching rows; list DTOs **without** `stackTrace`. |
-| Admin `GET .../request-logs/{id}` | Detail DTO **with** `stackTrace`; unknown id → 404. |
-
-Run filter/stack tests with **WebMvcTest / MockMvc** or **`@SpringBootTest`**, matching project norms.
-
----
-
-## Phase G — Operations documentation (short, required)
-
-- Document **UTC** usage for `created_at`, `bucket_start`, and retention cutoff interpretation (design §15 item 6).
-- Document async loss semantics and monitoring suggestions (queue depth, rejected tasks, DB errors).
-- Document admin API auth requirements.
-
----
-
-## Suggested module / package layout (non-binding)
-
-- `...observability.config` — properties, `@EnableAsync` / `@EnableScheduling`, executor beans, filter registration
-- `...observability.capture` — filter, context, resolvers, record factory
-- `...observability.classification` or `...observability.capture` — `HttpOutcomeClassifier`, `RequestLogOutcomeClassifier`, `StackTraceTruncator`, path policy
-- `...observability.persistence` — entities, repos, writer
-- `...observability.jobs` — retention, rollup
-- `...observability.admin` — controller, DTOs, query service
-
-Adjust names to match existing project conventions.
-
----
-
-## Dependency graph (summary)
-
-```
-A1 properties → C5/C7/D*
-A2–A5 schema + repos → C6, D1–D2, E1
-B* classifiers/policy + B2a truncator → C2, C7, D2
-C1–C6 + C7–C8 capture → produces rows
-D1 retention (needs A2, A5, B2)
-D2 rollup (needs A3, A5, B1, C6)
-E* admin API (needs A5, authorization infra)
-F tests parallelize after B*, C*, D*, E* pieces exist
-```
-
----
-
-## Checklist mapping to design rollout §15
-
-| Design §15 item | Plan steps |
-|-----------------|------------|
-| Flyway `request_log` + indexes | A2, A4, A5 |
-| Flyway aggregate + unique constraint | A3, A4, A5 |
-| Capture filter + async writer | C1–C8, A1 |
-| Error fields from handler | C2 + B2a + exception handler touchpoints |
-| Retention 7d / 30d | D1, A1 |
-| Rollup daily / indefinite aggregates | D2–D3, A1 |
-| Prefix rules | B3, C7 |
-| Read-only admin API | E1–E3 (list + detail DTOs); E4 aggregates optional |
-| UTC documentation | G |
-
-This sequence is intended so that **schema and pure rules land first**, **persistence path second**, **background jobs third**, and **operator-facing API last**, minimizing rework and keeping tests meaningful at each step.

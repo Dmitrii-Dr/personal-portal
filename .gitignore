@@ -49,7 +49,8 @@ secrets.json
 
 # Logs
 *.log
-
+logs/*
+personal-portal-application/logs
 # macOS Finder attributes
 .AppleDouble
 .LSOverride
@@ -69,3 +70,5 @@ npm-debug.log*
 *.bak
 .DS_Store?
 /.superset/config.json
+
+.cursor/
