@@ -3,6 +3,8 @@ package com.dmdr.personal.portal.config;
 import com.dmdr.personal.portal.core.security.SystemRole;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -53,7 +55,40 @@ public class WebSecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * SBA/actuator chain: /admin/sba/** (UI + registration API) and /actuator/**.
+     * - Form login: SBA UI POSTs to /admin/sba/login; Spring Security handles it (same credentials as SBA client).
+     * - HTTP Basic: still used for SBA client registration and optional browser auth.
+     * - Sessions used for /admin/sba so after form login the UI stays authenticated.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain sbaActuatorFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/admin/sba/**", "/actuator/**")
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .httpBasic(basic -> basic.realmName("Spring Boot Admin"))
+                .formLogin(form -> form
+                        .loginPage("/admin/sba/login")
+                        .loginProcessingUrl("/admin/sba/login")
+                        .defaultSuccessUrl("/admin/sba/", true)
+                        .permitAll())
+                .authorizeHttpRequests(authz -> authz
+                        .requestMatchers(HttpMethod.OPTIONS, "/admin/sba/**", "/actuator/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/admin/sba", "/admin/sba/", "/admin/sba/login", "/admin/sba/assets/**").permitAll()
+                        .anyRequest().hasAuthority(SystemRole.ADMIN.getAuthority()));
+
+        return http.build();
+    }
+
+    /**
+     * Main chain: all other endpoints. JWT only, no HTTP Basic.
+     */
+    @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -71,9 +106,9 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints - health check and authentication endpoints
                         .requestMatchers("/api/v*/public/**", "/api/v1/health", "/api/v1/auth/**",
-                                "/actuator/health/**")
+                                "/actuator/health", "/actuator/health/**")
                         .permitAll()
-                        // Admin endpoints - require ADMIN role
+                        // Admin endpoints - require ADMIN role (API admin; /admin/sba and /actuator handled by sbaActuatorFilterChain)
                         .requestMatchers("/api/v*/admin/**").hasAuthority(SystemRole.ADMIN.getAuthority())
                         // All other endpoints require authentication (USER token)
                         .anyRequest().authenticated());

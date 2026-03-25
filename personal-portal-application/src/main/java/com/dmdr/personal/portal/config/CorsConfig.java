@@ -55,6 +55,10 @@ public class CorsConfig {
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        // Content-Range must be explicitly exposed so SBA's logtail UI can read it on cross-origin
+        // 206 responses from /actuator/logfile (axios sees undefined without this, causing .split crash).
+        // Accept-Ranges is included as it is also read by the SBA log viewer.
+        configuration.setExposedHeaders(Arrays.asList("Content-Range", "Accept-Ranges"));
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
