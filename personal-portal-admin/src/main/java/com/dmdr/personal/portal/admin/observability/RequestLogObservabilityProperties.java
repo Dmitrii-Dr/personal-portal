@@ -159,4 +159,48 @@ public class RequestLogObservabilityProperties {
 		"x-real-ip"
 	);
 
+	/**
+	 * Enables/disables sanitization of error messages and stack traces.
+	 * These fields are unstructured and can contain secrets/PII even when headers/bodies are sanitized.
+	 */
+	private boolean errorTextEnabled = true;
+
+	/**
+	 * Maximum number of characters persisted for sanitized error message / stack trace text.
+	 */
+	private int errorTextMaxChars = 16_384;
+
+	/**
+	 * Placeholder value for sensitive fragments detected in error text.
+	 */
+	private String errorTextRedactionPlaceholder = "***";
+
+	/**
+	 * Placeholder value when error text sanitization fails.
+	 */
+	private String errorTextSanitizationFailedPlaceholder = "[error_sanitization_failed]";
+
+	/**
+	 * Case-insensitive list of key names whose values should be redacted in error text (e.g. "token=...").
+	 * Keys are normalized by removing non-alphanumeric characters.
+	 */
+	private List<String> errorTextSensitiveKeys = List.of(
+		"password",
+		"newpassword",
+		"oldpassword",
+		"token",
+		"accesstoken",
+		"refreshtoken",
+		"secret",
+		"apikey",
+		"xapikey",
+		"clientsecret",
+		"session",
+		"cookie",
+		"authorization",
+		"otp",
+		"code",
+		"verificationcode"
+	);
+
 }

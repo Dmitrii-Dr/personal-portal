@@ -4,6 +4,7 @@ import com.dmdr.personal.portal.admin.observability.classification.StackTraceTru
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,16 +14,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class RequestAttributeRequestLogErrorContext implements RequestLogErrorContext {
 
+    private final ErrorTextSanitizer errorTextSanitizer;
+
+    public RequestAttributeRequestLogErrorContext(ErrorTextSanitizer errorTextSanitizer) {
+        this.errorTextSanitizer = Objects.requireNonNull(errorTextSanitizer, "errorTextSanitizer must not be null");
+    }
+
     @Override
     public void recordApiError(HttpServletRequest request, String errorCode, String message, Throwable cause) {
-        String stackTrace = truncateStackTrace(cause);
+        String sanitizedMessage = errorTextSanitizer.sanitize(normalize(message));
+        String stackTrace = errorTextSanitizer.sanitize(truncateStackTrace(cause));
 
         request.setAttribute(RequestLogAttributes.ERROR_CODE, normalize(errorCode));
-        request.setAttribute(RequestLogAttributes.ERROR_MESSAGE, normalize(message));
+        request.setAttribute(RequestLogAttributes.ERROR_MESSAGE, sanitizedMessage);
         request.setAttribute(RequestLogAttributes.STACK_TRACE, stackTrace);
 
         RequestLogCaptureContext.current(request)
-            .ifPresent(context -> context.setErrorFields(normalize(errorCode), normalize(message), stackTrace));
+            .ifPresent(context -> context.setErrorFields(normalize(errorCode), sanitizedMessage, stackTrace));
     }
 
     private static String truncateStackTrace(Throwable cause) {

@@ -41,9 +41,9 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
                                           PasswordEncoder passwordEncoder,
                                           EmailService emailService,
                                           UserSettingsService userSettingsService,
-                                          @Value("${account.verification.code.expiry-minutes:10}") int codeExpiryMinutes,
-                                          @Value("${account.verification.code.max-attempts:5}") int maxAttempts,
-                                          @Value("${account.verification.resend.max-per-day:5}") int maxResendsPerDay) {
+                                          @Value("${account.verification.code.expiry-minutes}") int codeExpiryMinutes,
+                                          @Value("${account.verification.code.max-attempts}") int maxAttempts,
+                                          @Value("${account.verification.resend.max-per-day}") int maxResendsPerDay) {
         this.verificationCodeRepository = verificationCodeRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;

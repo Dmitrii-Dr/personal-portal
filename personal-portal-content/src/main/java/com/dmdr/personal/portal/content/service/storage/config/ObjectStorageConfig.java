@@ -24,10 +24,10 @@ public class ObjectStorageConfig {
 
     @Bean
     public S3Client s3Client(
-            @Value("${cloud.aws.region.static:us-east-1}") String region,
-            @Value("${cloud.aws.credentials.access-key:}") String accessKey,
-            @Value("${cloud.aws.credentials.secret-key:}") String secretKey,
-            @Value("${cloud.aws.s3.endpoint:}") String endpoint,
+            @Value("${cloud.aws.region.static}") String region,
+            @Value("${cloud.aws.credentials.access-key}") String accessKey,
+            @Value("${cloud.aws.credentials.secret-key}") String secretKey,
+            @Value("${cloud.aws.s3.endpoint}") String endpoint,
             @Value("${cloud.aws.s3.path-style-access:false}") boolean pathStyleAccess) {
 
         var builder = S3Client.builder()

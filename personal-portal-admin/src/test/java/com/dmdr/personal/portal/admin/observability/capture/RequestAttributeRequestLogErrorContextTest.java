@@ -10,7 +10,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 class RequestAttributeRequestLogErrorContextTest {
 
-    private final RequestAttributeRequestLogErrorContext context = new RequestAttributeRequestLogErrorContext();
+    private final RequestAttributeRequestLogErrorContext context = new RequestAttributeRequestLogErrorContext(text -> text);
 
     @Test
     void recordApiError_shouldWriteAttributesAndCaptureContext() {

@@ -21,8 +21,8 @@ public class SbaClientAuthConfig {
     @Bean
     public UserDetailsService sbaClientUserDetailsService(
             PasswordEncoder passwordEncoder,
-            @Value("${spring.boot.admin.client.username:sba-client}") String username,
-            @Value("${spring.boot.admin.client.password:sba-client-secret}") String password) {
+            @Value("${spring.boot.admin.client.username}") String username,
+            @Value("${spring.boot.admin.client.password}") String password) {
         var user = User.builder()
                 .username(username)
                 .password(passwordEncoder.encode(password))

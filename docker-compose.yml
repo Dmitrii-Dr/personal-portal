@@ -42,6 +42,8 @@ services:
     env_file:
       - .env
     environment:
+      ADMIN_USER_EMAIL: admin@example.com
+      ADMIN_USER_PASSWORD: admin123
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/personal_portal
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
@@ -56,6 +58,12 @@ services:
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "false"
       SPRING_MAIL_FROM_EMAIL: "noreply@personal-portal.com"
       SPRING_MAIL_FROM_NAME: "Personal Portal"
+      # Java reads templates from inside the container.
+      SPRING_MAIL_TEMPLATES_DIRECTORY: "/mail-templates"
+    volumes:
+      # Mount templates source, then copy into the runtime directory on startup.
+      - /Users/dmitrii/Documents/projects/YaCloud/deploy/resources/mail-templates:/mail-templates-src:ro
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /mail-templates && if [ -d /mail-templates-src ]; then cp -R /mail-templates-src/. /mail-templates/; fi && exec java -jar app.jar"]
     networks:
       - personal-portal-network
     restart: unless-stopped

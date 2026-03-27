@@ -50,7 +50,7 @@ class DefaultRequestLogRecordFactoryTest {
         response.setStatus(500);
         RequestLogCaptureContext.attach(request, Instant.parse("2026-03-23T12:00:00Z"));
         RequestLogCaptureContext context = RequestLogCaptureContext.current(request).orElseThrow();
-        new RequestAttributeRequestLogErrorContext().recordApiError(request, "ERR-42", "boom", new IllegalStateException("broken"));
+        new RequestAttributeRequestLogErrorContext(text -> text).recordApiError(request, "ERR-42", "boom", new IllegalStateException("broken"));
 
         RequestLogRecord record = factory.build(request, response, context);
 

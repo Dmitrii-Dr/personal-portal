@@ -10,7 +10,7 @@ class ObservabilityErrorAttributesExceptionResolverTest {
 
     @Test
     void resolveException_shouldRecordStackTraceAndMessageAndContinueResolverChain() {
-        RequestAttributeRequestLogErrorContext context = new RequestAttributeRequestLogErrorContext();
+        RequestAttributeRequestLogErrorContext context = new RequestAttributeRequestLogErrorContext(text -> text);
         ObservabilityErrorAttributesExceptionResolver resolver = new ObservabilityErrorAttributesExceptionResolver(context);
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();

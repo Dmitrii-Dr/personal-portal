@@ -30,8 +30,8 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     public RefreshTokenServiceImpl(
             UserSessionRepository userSessionRepository,
-            @Value("${jwt.refresh-token-absolute-ttl-minutes:10080}") long absoluteTtlMinutes,
-            @Value("${jwt.refresh-token-idle-ttl-minutes:1440}") long idleTtlMinutes) {
+            @Value("${jwt.refresh-token-absolute-ttl-minutes}") long absoluteTtlMinutes,
+            @Value("${jwt.refresh-token-idle-ttl-minutes}") long idleTtlMinutes) {
         this.userSessionRepository = userSessionRepository;
         this.absoluteTtlMinutes = absoluteTtlMinutes;
         this.idleTtlMinutes = idleTtlMinutes;

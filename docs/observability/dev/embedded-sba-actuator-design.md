@@ -35,7 +35,7 @@ Versions should align with the project’s Spring Boot BOM (e.g. SBA 3.4.x for S
 
 | Concern | Configuration |
 |--------|----------------|
-| **Actuator** | Expose all actuator endpoints over web: `management.endpoints.web.exposure.include=*` (or equivalent in YAML). |
+| **Actuator** | Expose only endpoints needed for SBA: `management.endpoints.web.exposure.include=health,metrics,loggers,logfile` (optionally add `info`). Also harden public health: `management.endpoint.health.show-details=never` (optionally `management.endpoint.health.show-components=never`). |
 
 | **SBA client self-registration** | Point the client at the same instance: `spring.boot.admin.client.url=http://localhost:${server.port}` so the app registers to itself. |
 
@@ -99,7 +99,8 @@ Keep CSRF **enabled** for other endpoints as per current security policy.
 │           ▼                      ▼                            │
 │  ┌─────────────────────────────────────┐                     │
 │  │  Actuator (management.endpoints)    │                     │
-│  │  exposure: *                        │                     │
+│  │  exposure: health,metrics,loggers,  │                     │
+│  │            logfile                  │                     │
 │  └─────────────────────────────────────┘                     │
 │                                                               │
 │  Security: /admin/sba/, /actuator, /instances → ADMIN only      │

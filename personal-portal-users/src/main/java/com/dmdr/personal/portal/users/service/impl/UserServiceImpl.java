@@ -12,13 +12,13 @@ import com.dmdr.personal.portal.users.service.RoleService;
 import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.model.SignedAgreement;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
+import com.dmdr.personal.portal.users.service.PasswordPolicyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,16 +39,19 @@ public class UserServiceImpl implements UserService {
     private final RoleService roleService;
     private final UserSettingsService userSettingsService;
     private final AgreementVerifier agreementVerifier;
+    private final PasswordPolicyService passwordPolicyService;
 
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
             RoleService roleService,
             UserSettingsService userSettingsService,
-            AgreementVerifier agreementVerifier) {
+            AgreementVerifier agreementVerifier,
+            PasswordPolicyService passwordPolicyService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
         this.userSettingsService = userSettingsService;
         this.agreementVerifier = agreementVerifier;
+        this.passwordPolicyService = passwordPolicyService;
     }
 
     @Override
@@ -65,6 +68,7 @@ public class UserServiceImpl implements UserService {
         User user = new User();
         user.setEmail(request.getEmail());
         // Hash the password before saving
+        passwordPolicyService.validatePasswordRequirements(request.getPassword());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
@@ -95,7 +99,7 @@ public class UserServiceImpl implements UserService {
         user.setPhoneNumber(phoneNumber);
         user.setActive(true);
 
-        String randomPassword = generateRandomPassword();
+        String randomPassword = passwordPolicyService.generateRandomPassword();
         user.setPassword(passwordEncoder.encode(randomPassword));
 
         Role userRole = roleService.findByName(DEFAULT_ROLE)
@@ -174,9 +178,7 @@ public class UserServiceImpl implements UserService {
         if (userId == null) {
             throw new IllegalArgumentException("User id cannot be null");
         }
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new IllegalArgumentException("New password cannot be null or blank");
-        }
+        passwordPolicyService.validatePasswordRequirements(newPassword);
 
         User user = userRepository.findUserById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User with id " + userId + " not found"));
@@ -187,44 +189,5 @@ public class UserServiceImpl implements UserService {
         user.setLastPasswordResetDate(OffsetDateTime.now());
 
         userRepository.save(user);
-    }
-
-    /**
-     * Generates a secure random password with a mix of uppercase, lowercase,
-     * digits, and special characters.
-     * 
-     * @return A random password of 16 characters
-     */
-    private String generateRandomPassword() {
-        String uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        String lowercase = "abcdefghijklmnopqrstuvwxyz";
-        String digits = "0123456789";
-        String special = "!@#$%^&*";
-        String allChars = uppercase + lowercase + digits + special;
-
-        SecureRandom random = new SecureRandom();
-        StringBuilder password = new StringBuilder(16);
-
-        // Ensure at least one character from each category
-        password.append(uppercase.charAt(random.nextInt(uppercase.length())));
-        password.append(lowercase.charAt(random.nextInt(lowercase.length())));
-        password.append(digits.charAt(random.nextInt(digits.length())));
-        password.append(special.charAt(random.nextInt(special.length())));
-
-        // Fill the rest randomly
-        for (int i = 4; i < 16; i++) {
-            password.append(allChars.charAt(random.nextInt(allChars.length())));
-        }
-
-        // Shuffle the password to avoid predictable pattern
-        char[] passwordArray = password.toString().toCharArray();
-        for (int i = passwordArray.length - 1; i > 0; i--) {
-            int j = random.nextInt(i + 1);
-            char temp = passwordArray[i];
-            passwordArray[i] = passwordArray[j];
-            passwordArray[j] = temp;
-        }
-
-        return new String(passwordArray);
     }
 }

@@ -401,6 +401,48 @@ public class BookingServiceImpl implements BookingService {
         }
 
         Booking saved = bookingRepository.save(entity);
+
+        User client = saved.getClient();
+        try {
+            if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                emailService.sendBookingCancellationUserEmail(
+                        client.getEmail(),
+                        client.getFirstName(),
+                        client.getLastName(),
+                        saved.getSessionName(),
+                        saved.getStartTime()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to send booking cancellation user email to {}: {}", client.getId(), e.getMessage());
+        }
+
+        // Send email notification to all admin users
+        try {
+            List<User> adminUsers = userService.findByRoleName(SystemRole.ADMIN.getAuthority(), null);
+            String clientName = (client.getFirstName() != null ? client.getFirstName() : "")
+                    + (client.getLastName() != null ? " " + client.getLastName() : "").trim();
+            if (clientName.isEmpty()) {
+                clientName = "Unknown User";
+            }
+
+            for (User admin : adminUsers) {
+                try {
+                    emailService.sendBookingCancellationAdminEmail(
+                            admin.getEmail(),
+                            clientName,
+                            client.getEmail(),
+                            saved.getSessionName(),
+                            saved.getStartTime()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to send booking cancellation email to admin {}: {}", admin.getId(), e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to send booking cancellation notifications to admins: {}", e.getMessage());
+        }
+
         return toResponse(saved);
     }
 

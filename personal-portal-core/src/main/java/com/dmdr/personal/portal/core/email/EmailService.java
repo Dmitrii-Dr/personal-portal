@@ -80,6 +80,30 @@ public interface EmailService {
             String sessionTypeName, Instant oldStartTime, Instant newStartTime);
 
     /**
+     * Sends a booking cancellation confirmation email to the client.
+     *
+     * @param toEmail the recipient's email address
+     * @param firstName the recipient's first name
+     * @param lastName the recipient's last name
+     * @param sessionTypeName the name of the session type
+     * @param startTime the start time of the cancelled booking
+     */
+    void sendBookingCancellationUserEmail(String toEmail, String firstName, String lastName,
+            String sessionTypeName, Instant startTime);
+
+    /**
+     * Sends a booking cancellation notification email to an admin user.
+     *
+     * @param toEmail the recipient's email address
+     * @param clientName the client's full name
+     * @param clientEmail the client's email address
+     * @param sessionTypeName the name of the session type
+     * @param startTime the start time of the cancelled booking
+     */
+    void sendBookingCancellationAdminEmail(String toEmail, String clientName, String clientEmail,
+            String sessionTypeName, Instant startTime);
+
+    /**
      * Sends a password reset email to the user.
      *
      * @param toEmail the recipient's email address
