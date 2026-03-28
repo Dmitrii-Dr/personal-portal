@@ -1,13 +1,9 @@
 package com.dmdr.personal.portal.core.email;
 
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
@@ -32,7 +28,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Implementation of EmailService using Spring Mail.
+ * {@link EmailService} implementation: builds HTML from templates and sends via {@link HtmlEmailDispatcher}
+ * (SMTP or Mailgun HTTP API depending on {@code app.email.transport}).
  */
 @Service
 @Slf4j
@@ -60,23 +57,17 @@ public class EmailServiceImpl implements EmailService {
     private static volatile boolean templatesPreloaded = false;
     private static volatile String preloadedTemplatesDirectory = "";
 
-    private final JavaMailSender mailSender;
-    private final String fromEmail;
-    private final String fromName;
+    private final HtmlEmailDispatcher htmlEmailDispatcher;
     private final EmailTemplateProperties emailTemplateProperties;
     private final TaskExecutor emailTaskExecutor;
     private final EmailFailureObservabilityRecorder emailFailureObservabilityRecorder;
 
     public EmailServiceImpl(
-            JavaMailSender mailSender,
-            @Value("${spring.mail.from.email}") String fromEmail,
-            @Value("${spring.mail.from.name}") String fromName,
+            HtmlEmailDispatcher htmlEmailDispatcher,
             EmailTemplateProperties emailTemplateProperties,
             @Qualifier("emailTaskExecutor") TaskExecutor emailTaskExecutor,
             EmailFailureObservabilityRecorder emailFailureObservabilityRecorder) {
-        this.mailSender = Objects.requireNonNull(mailSender, "mailSender");
-        this.fromEmail = Objects.requireNonNull(fromEmail, "spring.mail.from.email");
-        this.fromName = Objects.requireNonNull(fromName, "spring.mail.from.name");
+        this.htmlEmailDispatcher = Objects.requireNonNull(htmlEmailDispatcher, "htmlEmailDispatcher");
         this.emailTemplateProperties = Objects.requireNonNull(emailTemplateProperties, "emailTemplateProperties");
         this.emailTaskExecutor = Objects.requireNonNull(emailTaskExecutor, "emailTaskExecutor");
         this.emailFailureObservabilityRecorder = Objects.requireNonNull(emailFailureObservabilityRecorder, "emailFailureObservabilityRecorder");
@@ -183,21 +174,8 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendWelcomeEmail(String toEmail, String firstName, String lastName) {
         sendAsync("welcome", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Ваш аккаунт готов к работе!");
-
             String htmlContent = buildWelcomeEmailHtml(firstName, lastName);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Ваш аккаунт готов к работе!", htmlContent);
         });
     }
 
@@ -219,21 +197,8 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingConfirmationEmail(String toEmail, String firstName, String lastName,
                                             String sessionTypeName, Instant startTime) {
         sendAsync("booking-confirmation", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Booking Confirmed - " + sessionTypeName);
-
             String htmlContent = buildBookingConfirmationEmailHtml(firstName, lastName, sessionTypeName, startTime);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование подтверждено — " + sessionTypeName, htmlContent);
         });
     }
 
@@ -241,21 +206,8 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingRejectionEmail(String toEmail, String firstName, String lastName,
                                          String sessionTypeName, Instant startTime) {
         sendAsync("booking-rejection", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Booking Declined - " + sessionTypeName);
-
             String htmlContent = buildBookingRejectionEmailHtml(firstName, lastName, sessionTypeName, startTime);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отклонено — " + sessionTypeName, htmlContent);
         });
     }
 
@@ -301,21 +253,8 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingRequestAdminEmail(String toEmail, String clientName, String clientEmail,
                                             String sessionTypeName, Instant startTime, String clientMessage) {
         sendAsync("booking-request-admin", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("New Booking Request - " + sessionTypeName);
-
             String htmlContent = buildBookingRequestAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime, clientMessage);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Новая заявка на бронирование — " + sessionTypeName, htmlContent);
         });
     }
 
@@ -323,26 +262,13 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingRequestUserEmail(String toEmail, String firstName, String lastName,
             String sessionTypeName, Instant startTime, String clientMessage) {
         sendAsync("booking-request-user", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Booking Request Received - " + sessionTypeName);
-
             String htmlContent = buildBookingRequestUserEmailHtml(
                     firstName,
                     lastName,
                     sessionTypeName,
                     startTime,
                     clientMessage);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Заявка на бронирование получена — " + sessionTypeName, htmlContent);
         });
     }
 
@@ -350,26 +276,16 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingUpdateRequestUserEmail(String toEmail, String firstName, String lastName,
             String sessionTypeName, Instant oldStartTime, Instant newStartTime) {
         sendAsync("booking-update-request-user", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Booking Update Request Received - " + sessionTypeName);
-
             String htmlContent = buildBookingUpdateRequestUserEmailHtml(
                     firstName,
                     lastName,
                     sessionTypeName,
                     oldStartTime,
                     newStartTime);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(
+                    toEmail,
+                    "Запрос на изменение бронирования получен — " + sessionTypeName,
+                    htmlContent);
         });
     }
 
@@ -377,21 +293,8 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingCancellationUserEmail(String toEmail, String firstName, String lastName,
             String sessionTypeName, Instant startTime) {
         sendAsync("booking-cancellation-user", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Booking Cancelled - " + (sessionTypeName != null ? sessionTypeName : "Session"));
-
             String htmlContent = buildBookingCancellationUserEmailHtml(firstName, lastName, sessionTypeName, startTime);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отменено — " + sessionTypeName, htmlContent);
         });
     }
 
@@ -399,21 +302,8 @@ public class EmailServiceImpl implements EmailService {
     public void sendBookingCancellationAdminEmail(String toEmail, String clientName, String clientEmail,
             String sessionTypeName, Instant startTime) {
         sendAsync("booking-cancellation-admin", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Booking Cancelled - " + (sessionTypeName != null ? sessionTypeName : "Session"));
-
             String htmlContent = buildBookingCancellationAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отменено — " + sessionTypeName, htmlContent);
         });
     }
 
@@ -552,21 +442,8 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendPasswordResetEmail(String toEmail, String firstName, String lastName, String resetLink) {
         sendAsync("password-reset", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Reset Your Password");
-
             String htmlContent = buildPasswordResetEmailHtml(firstName, lastName, resetLink);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Сброс пароля", htmlContent);
         });
     }
 
@@ -589,25 +466,12 @@ public class EmailServiceImpl implements EmailService {
     public void sendAccountVerificationCodeEmail(String toEmail, String firstName, String lastName,
             String verificationCode, int expiryMinutes) {
         sendAsync("account-verification-code", toEmail, () -> {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(
-                    message,
-                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                    StandardCharsets.UTF_8.name()
-            );
-
-            helper.setFrom(fromEmail, fromName);
-            helper.setTo(toEmail);
-            helper.setSubject("Verify your Personal Portal account");
-
             String htmlContent = buildAccountVerificationEmailHtml(
                     firstName,
                     lastName,
                     verificationCode,
                     expiryMinutes);
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
+            htmlEmailDispatcher.sendHtml(toEmail, "Подтверждение аккаунта", htmlContent);
         });
     }
 

@@ -1,35 +1,29 @@
 package com.dmdr.personal.portal.core.email;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
-import jakarta.mail.Session;
-import jakarta.mail.internet.MimeMessage;
-import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.core.task.SyncTaskExecutor;
-import org.springframework.mail.javamail.JavaMailSender;
 
 class EmailServiceImplAsyncTest {
 
     @Test
-    void shouldRecordFailureWhenAsyncEmailSendThrows() {
-        JavaMailSender mailSender = Mockito.mock(JavaMailSender.class);
+    void shouldRecordFailureWhenAsyncEmailSendThrows() throws Exception {
+        HtmlEmailDispatcher dispatcher = Mockito.mock(HtmlEmailDispatcher.class);
         EmailFailureObservabilityRecorder recorder = Mockito.mock(EmailFailureObservabilityRecorder.class);
 
-        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
-        Mockito.doThrow(new RuntimeException("smtp down")).when(mailSender).send(any(MimeMessage.class));
+        doThrow(new RuntimeException("send failed")).when(dispatcher).sendHtml(anyString(), anyString(), anyString());
 
         EmailTemplateProperties templateProperties = new EmailTemplateProperties();
         EmailServiceImpl service = new EmailServiceImpl(
-            mailSender,
-            "from@test.local",
-            "Portal",
+            dispatcher,
             templateProperties,
             new SyncTaskExecutor(),
             recorder
@@ -47,17 +41,13 @@ class EmailServiceImplAsyncTest {
     }
 
     @Test
-    void shouldNotRecordFailureWhenAsyncEmailSendSucceeds() {
-        JavaMailSender mailSender = Mockito.mock(JavaMailSender.class);
+    void shouldNotRecordFailureWhenAsyncEmailSendSucceeds() throws Exception {
+        HtmlEmailDispatcher dispatcher = Mockito.mock(HtmlEmailDispatcher.class);
         EmailFailureObservabilityRecorder recorder = Mockito.mock(EmailFailureObservabilityRecorder.class);
-
-        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
 
         EmailTemplateProperties templateProperties = new EmailTemplateProperties();
         EmailServiceImpl service = new EmailServiceImpl(
-            mailSender,
-            "from@test.local",
-            "Portal",
+            dispatcher,
             templateProperties,
             new SyncTaskExecutor(),
             recorder
