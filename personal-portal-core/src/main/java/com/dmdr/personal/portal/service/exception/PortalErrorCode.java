@@ -10,6 +10,7 @@ public enum PortalErrorCode {
     PORTAL_INACTIVE("PEC-416", 500, "Portal is inactive."),
     AVAILABILITY_OVERRIDE_OVERLAPS_ACTIVE_RULE("PEC-417", 400, "Availability override overlaps with active working hours."),
     PASSWORD_REQUIREMENTS_NOT_MET("PEC-418", 400, "Password does not meet security requirements."),
+    EMAIL_SENDING_FAILED("PEC-419", 500, "Email sending failed."),
 
     UNEXPECTED_SERVER_ERROR("PEC-500", 500, "Unexpected server error.");
     private final String code;

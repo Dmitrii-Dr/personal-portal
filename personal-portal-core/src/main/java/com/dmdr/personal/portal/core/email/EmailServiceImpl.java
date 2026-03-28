@@ -1,16 +1,22 @@
 package com.dmdr.personal.portal.core.email;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
+import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -58,18 +64,62 @@ public class EmailServiceImpl implements EmailService {
     private final String fromEmail;
     private final String fromName;
     private final EmailTemplateProperties emailTemplateProperties;
+    private final TaskExecutor emailTaskExecutor;
+    private final EmailFailureObservabilityRecorder emailFailureObservabilityRecorder;
 
     public EmailServiceImpl(
             JavaMailSender mailSender,
             @Value("${spring.mail.from.email}") String fromEmail,
             @Value("${spring.mail.from.name}") String fromName,
-            EmailTemplateProperties emailTemplateProperties) {
+            EmailTemplateProperties emailTemplateProperties,
+            @Qualifier("emailTaskExecutor") TaskExecutor emailTaskExecutor,
+            EmailFailureObservabilityRecorder emailFailureObservabilityRecorder) {
         this.mailSender = Objects.requireNonNull(mailSender, "mailSender");
         this.fromEmail = Objects.requireNonNull(fromEmail, "spring.mail.from.email");
         this.fromName = Objects.requireNonNull(fromName, "spring.mail.from.name");
         this.emailTemplateProperties = Objects.requireNonNull(emailTemplateProperties, "emailTemplateProperties");
+        this.emailTaskExecutor = Objects.requireNonNull(emailTaskExecutor, "emailTaskExecutor");
+        this.emailFailureObservabilityRecorder = Objects.requireNonNull(emailFailureObservabilityRecorder, "emailFailureObservabilityRecorder");
 
         preloadTemplatesAtStartup();
+    }
+
+    private void sendAsync(String emailType, String recipient, EmailSendAction action) {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        Map<String, String> mdcContext = MDC.getCopyOfContextMap();
+        EmailRequestContextSnapshot contextSnapshot = EmailRequestContextSnapshot.captureCurrent();
+        emailTaskExecutor.execute(() -> {
+            try {
+                if (requestAttributes != null) {
+                    RequestContextHolder.setRequestAttributes(requestAttributes);
+                }
+                if (mdcContext != null) {
+                    MDC.setContextMap(mdcContext);
+                } else {
+                    MDC.clear();
+                }
+                action.run();
+            } catch (Exception e) {
+                PersonalPortalRuntimeException portalException =
+                        new PersonalPortalRuntimeException(PortalErrorCode.EMAIL_SENDING_FAILED);
+                log.error(
+                        "Email send failed: type={}, recipient={}, code={}, message={}",
+                        emailType,
+                        recipient,
+                        portalException.getErrorCode().getCode(),
+                        e.getMessage(),
+                        e
+                );
+                emailFailureObservabilityRecorder.recordFailure(contextSnapshot, recipient, emailType, portalException, e);
+            } finally {
+                RequestContextHolder.resetRequestAttributes();
+                MDC.clear();
+            }
+        });
+    }
+
+    private interface EmailSendAction {
+        void run() throws Exception;
     }
 
     private String loadTemplate(String templateName) throws IOException {
@@ -132,7 +182,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendWelcomeEmail(String toEmail, String firstName, String lastName) {
-        try {
+        sendAsync("welcome", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -148,10 +198,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            // Log error but don't throw - email sending failure shouldn't break user creation
-            System.err.println("Failed to send welcome email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     private String buildWelcomeEmailHtml(String firstName, String lastName) {
@@ -171,7 +218,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendBookingConfirmationEmail(String toEmail, String firstName, String lastName,
                                             String sessionTypeName, Instant startTime) {
-        try {
+        sendAsync("booking-confirmation", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -187,15 +234,13 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking confirmation email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     @Override
     public void sendBookingRejectionEmail(String toEmail, String firstName, String lastName,
                                          String sessionTypeName, Instant startTime) {
-        try {
+        sendAsync("booking-rejection", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -211,9 +256,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking rejection email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     private String buildBookingConfirmationEmailHtml(String firstName, String lastName, String sessionTypeName, Instant startTime) {
@@ -257,7 +300,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendBookingRequestAdminEmail(String toEmail, String clientName, String clientEmail,
                                             String sessionTypeName, Instant startTime, String clientMessage) {
-        try {
+        sendAsync("booking-request-admin", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -273,15 +316,13 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking request admin email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     @Override
     public void sendBookingRequestUserEmail(String toEmail, String firstName, String lastName,
             String sessionTypeName, Instant startTime, String clientMessage) {
-        try {
+        sendAsync("booking-request-user", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -302,15 +343,13 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking request user email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     @Override
     public void sendBookingUpdateRequestUserEmail(String toEmail, String firstName, String lastName,
             String sessionTypeName, Instant oldStartTime, Instant newStartTime) {
-        try {
+        sendAsync("booking-update-request-user", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -331,15 +370,13 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking update request user email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     @Override
     public void sendBookingCancellationUserEmail(String toEmail, String firstName, String lastName,
             String sessionTypeName, Instant startTime) {
-        try {
+        sendAsync("booking-cancellation-user", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -355,15 +392,13 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking cancellation user email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     @Override
     public void sendBookingCancellationAdminEmail(String toEmail, String clientName, String clientEmail,
             String sessionTypeName, Instant startTime) {
-        try {
+        sendAsync("booking-cancellation-admin", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -379,9 +414,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send booking cancellation admin email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     private String buildBookingRequestAdminEmailHtml(String clientName, String clientEmail, String sessionTypeName, 
@@ -518,7 +551,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPasswordResetEmail(String toEmail, String firstName, String lastName, String resetLink) {
-        try {
+        sendAsync("password-reset", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -534,9 +567,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send password reset email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     private String buildPasswordResetEmailHtml(String firstName, String lastName, String resetLink) {
@@ -557,7 +588,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendAccountVerificationCodeEmail(String toEmail, String firstName, String lastName,
             String verificationCode, int expiryMinutes) {
-        try {
+        sendAsync("account-verification-code", toEmail, () -> {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
@@ -577,9 +608,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-        } catch (MessagingException | IOException e) {
-            System.err.println("Failed to send account verification email to " + toEmail + ": " + e.getMessage());
-        }
+        });
     }
 
     private String buildAccountVerificationEmailHtml(String firstName, String lastName, String verificationCode,
