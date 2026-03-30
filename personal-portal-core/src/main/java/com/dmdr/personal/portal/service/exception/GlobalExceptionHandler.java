@@ -5,6 +5,7 @@ import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededExceptio
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.util.Map;
 
@@ -14,6 +15,12 @@ import static com.dmdr.personal.portal.service.exception.PortalErrorCode.UNEXPEC
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleAsyncRequestNotUsable(AsyncRequestNotUsableException e) {
+        // Client disconnected while an async response was being written (common with SSE/tab close).
+        // Silently ignore to avoid trying to serialize error JSON into `text/event-stream`.
+        return ResponseEntity.noContent().build();
+    }
 
     @ExceptionHandler(PersonalPortalRuntimeException.class)
     public ResponseEntity<Map<String, Object>> handlePortalRuntimeException(PersonalPortalRuntimeException e) {
