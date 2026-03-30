@@ -5,9 +5,13 @@ import com.dmdr.personal.portal.admin.observability.capture.RequestLoggingFilter
 import java.time.Clock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -17,6 +21,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * Scheduled retention/rollup jobs should use {@code zone = "UTC"} on {@code @Scheduled} with the cron strings from properties.
  */
 @AutoConfiguration
+@AutoConfigureAfter({ DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class })
 @EnableConfigurationProperties(RequestLogObservabilityProperties.class)
 @EnableAsync
 @EnableScheduling
@@ -52,6 +57,7 @@ public class RequestLogObservabilityAutoConfiguration {
 	}
 
 	@Bean
+	@DependsOn("entityManagerFactory")
 	public FilterRegistrationBean<RequestLoggingFilter> requestLoggingFilterRegistration(RequestLoggingFilter requestLoggingFilter) {
 		FilterRegistrationBean<RequestLoggingFilter> registration = new FilterRegistrationBean<>(requestLoggingFilter);
 		registration.setName("requestLoggingFilter");

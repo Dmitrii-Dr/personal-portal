@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 
 /**
  * {@link EmailService} implementation: builds HTML from templates and sends via {@link HtmlEmailDispatcher}
- * (SMTP or Mailgun HTTP API depending on {@code app.email.transport}).
+ * (SMTP or Yandex Cloud Postbox / SES API v2 depending on {@code app.email.transport}).
  */
 @Service
 @Slf4j

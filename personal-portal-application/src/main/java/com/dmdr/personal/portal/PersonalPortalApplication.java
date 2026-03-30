@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
+//mvn spring-boot:run -pl personal-portal-application -Dspring-boot.run.profiles=dev
 @SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
 @EnableScheduling
 @EnableAdminServer

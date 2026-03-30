@@ -24,6 +24,7 @@ COPY personal-portal-core/src ./personal-portal-core/src
 COPY personal-portal-users/src ./personal-portal-users/src
 COPY personal-portal-content/src ./personal-portal-content/src
 COPY personal-portal-booking/src ./personal-portal-booking/src
+COPY personal-portal-admin/src ./personal-portal-admin/src
 COPY personal-portal-application/src ./personal-portal-application/src
 
 # Build the application

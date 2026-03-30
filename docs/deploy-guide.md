@@ -18,10 +18,10 @@ These have **no safe production defaults** and are referenced as `${VAR}`.
 
 - **`CORS_ALLOWED_ORIGINS`**: Allowed origins for CORS in production (comma-separated).
 
-- **`SPRING_MAIL_HOST`**: SMTP host.
-- **`SPRING_MAIL_PORT`**: SMTP port (typically `587` for STARTTLS or `465` for SMTPS).
-- **`SPRING_MAIL_FROM_EMAIL`**: “From” email address used by the application.
-- **`SPRING_MAIL_FROM_NAME`**: “From” display name used by the application (dev default exists in `application-dev.properties`).
+- **`SPRING_MAIL_FROM_EMAIL`**: “From” email address (must be an identity allowed by Postbox — verified domain/address in Yandex Cloud).
+- **`SPRING_MAIL_FROM_NAME`**: “From” display name (dev default exists in `application-dev.properties`).
+
+- **`POSTBOX_ACCESS_KEY_ID`** / **`POSTBOX_SECRET_ACCESS_KEY`**: Static access key for a Yandex Cloud service account with permission to call Postbox (Amazon **SES API v2** `SendEmail`). Required when **`APP_EMAIL_TRANSPORT`** is unset or `postbox` (the production default in `application.properties`).
 
 - **`ADMIN_USER_EMAIL`**: Admin bootstrap/login email (ensure you manage this securely in prod).
 - **`ADMIN_USER_PASSWORD`**: Admin bootstrap/login password (ensure you manage this securely in prod).
@@ -61,11 +61,24 @@ If you use object storage, set these (otherwise values default to empty / disabl
 - **`CLOUD_AWS_S3_PATH_STYLE_ACCESS`**: Defaults to `false`.
 - **`AWS_S3_BUCKET_NAME`**: Defaults to empty.
 
-### SMTP auth / TLS (optional overrides)
+### Email transport (optional overrides)
 
+Default production transport is **Yandex Cloud Postbox** via the **AWS SDK for Java** (`SesV2Client`, SES API v2 `SendEmail` against the Postbox endpoint — classic `SesClient` is not supported on Postbox and returns HTTP 404). Spring Mail auto-configuration is excluded in the base `application.properties`. To use **SMTP** instead (e.g. Mailpit in Docker), set **`APP_EMAIL_TRANSPORT=smtp`** and **clear** `spring.autoconfigure.exclude` for the mail starter (see `application-dev.properties`).
+
+- **`APP_EMAIL_TRANSPORT`**: `postbox` (default) or `smtp`.
+
+### Postbox (optional overrides)
+
+- **`POSTBOX_ENDPOINT`**: SES-compatible HTTPS endpoint, default `https://postbox.cloud.yandex.net`.
+- **`POSTBOX_REGION`**: SigV4 signing region, default `ru-central1` (see [Yandex Cloud Postbox](https://yandex.cloud/en/docs/postbox/) if this changes).
+
+### SMTP (when `APP_EMAIL_TRANSPORT=smtp`)
+
+- **`SPRING_MAIL_HOST`**: SMTP host.
+- **`SPRING_MAIL_PORT`**: SMTP port (e.g. `1025` for Mailpit, `587` for STARTTLS).
 - **`SPRING_MAIL_USERNAME`**: Defaults to empty.
 - **`SPRING_MAIL_PASSWORD`**: Defaults to empty.
-- **`SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH`**: Defaults to `true`.
+- **`SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH`**: Defaults to `true` in base `application.properties` (override for local Mailpit).
 - **`SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE`**: Defaults to `true`.
 - **`SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED`**: Defaults to `true`.
 

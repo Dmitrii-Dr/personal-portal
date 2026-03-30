@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -23,6 +24,7 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
  * See docs/observability/dev/rest-request-observability-impl-plan-composer.md (Step C7, C8).
  */
 @Component
+@DependsOn("entityManagerFactory")
 public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final int REQUEST_BODY_CACHE_LIMIT_BYTES = 128 * 1024;

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * HTML email via Spring {@link JavaMailSender} (dev Mailpit, test SMTP, or production SMTP).
  */
 @Component
-@ConditionalOnProperty(prefix = "app.email", name = "transport", havingValue = "smtp", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "app.email", name = "transport", havingValue = "smtp")
 public class SmtpHtmlEmailDispatcher implements HtmlEmailDispatcher {
 
     private final JavaMailSender mailSender;

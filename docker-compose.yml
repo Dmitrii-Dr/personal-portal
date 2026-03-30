@@ -42,6 +42,8 @@ services:
     env_file:
       - .env
     environment:
+      # Align with local dev: SMTP → Mailpit (jar default is Postbox / SES API).
+      SPRING_PROFILES_ACTIVE: dev
       ADMIN_USER_EMAIL: admin@example.com
       ADMIN_USER_PASSWORD: admin123
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/personal_portal

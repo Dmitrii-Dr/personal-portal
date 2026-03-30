@@ -71,8 +71,8 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
         if (verificationCode.getCreatedAt() != null && !verificationCode.getCreatedAt().toLocalDate().isEqual(now.toLocalDate())) {
             log.warn("Account verification code for user {} was generated {}. This code will be replaced with a new one",
                     user.getId(), verificationCode.getCreatedAt());
-            verificationCodeRepository.delete(verificationCode);
-            verificationCode = new AccountVerificationCode();
+          verificationCode.setResendCount(0);
+            verificationCode.setCreatedAt(now);
         } else if (verificationCode.getResendCount() >= maxResendsPerDay) {
             log.error("Issue Verification code request is rate limited for user {}. maxResendsPerDay: {} ",
                     user.getId(), maxResendsPerDay);
