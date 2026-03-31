@@ -1,5 +1,6 @@
 package com.dmdr.personal.portal.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,12 +18,22 @@ public class CsrfConfig {
     public static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     public static final String CSRF_HEADER_NAME = "X-XSRF-TOKEN";
 
+    // Make CSRF cookie persistent so mobile browsers don't drop it on app exit.
+    // Keep it aligned with refresh token absolute TTL (in minutes).
+    private final int csrfCookieMaxAgeSeconds;
+
+    public CsrfConfig(@Value("${jwt.refresh-token-absolute-ttl-minutes:10080}") long refreshTokenAbsoluteTtlMinutes) {
+        this.csrfCookieMaxAgeSeconds = Math.toIntExact(refreshTokenAbsoluteTtlMinutes * 60L);
+    }
+
     @Bean
+    @SuppressWarnings("deprecation")
     public CsrfTokenRepository csrfTokenRepository() {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repository.setCookieName(CSRF_COOKIE_NAME);
         repository.setHeaderName(CSRF_HEADER_NAME);
         repository.setCookiePath("/");
+        repository.setCookieMaxAge(csrfCookieMaxAgeSeconds);
         return new ConditionalCsrfTokenRepository(repository);
     }
 

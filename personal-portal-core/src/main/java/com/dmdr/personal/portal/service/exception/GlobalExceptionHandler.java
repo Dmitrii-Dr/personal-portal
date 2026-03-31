@@ -3,6 +3,8 @@ package com.dmdr.personal.portal.service.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
@@ -10,11 +12,15 @@ import org.springframework.web.context.request.async.AsyncRequestNotUsableExcept
 import java.util.Map;
 
 import static com.dmdr.personal.portal.service.exception.PortalErrorCode.FILE_TOO_LARGE;
+import static com.dmdr.personal.portal.service.exception.PortalErrorCode.INVALID_SLUG_FORMAT;
 import static com.dmdr.personal.portal.service.exception.PortalErrorCode.UNEXPECTED_SERVER_ERROR;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+    private static final String INVALID_SLUG_VALIDATION_MESSAGE =
+        "Slug must contain only lowercase letters, numbers, and hyphens (no spaces or special characters)";
+
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public ResponseEntity<Void> handleAsyncRequestNotUsable(AsyncRequestNotUsableException e) {
         // Client disconnected while an async response was being written (common with SSE/tab close).
@@ -31,6 +37,28 @@ public class GlobalExceptionHandler {
             "message", errorCode.getMessage()
         );
         return ResponseEntity.status(errorCode.getHttpCode()).body(error);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        FieldError firstFieldError = e.getBindingResult().getFieldErrors().stream().findFirst().orElse(null);
+        String validationMessage = firstFieldError != null ? firstFieldError.getDefaultMessage() : null;
+
+        if (INVALID_SLUG_VALIDATION_MESSAGE.equals(validationMessage)) {
+            log.warn("Validation failed: {}", validationMessage);
+            Map<String, Object> error = Map.of(
+                "code", INVALID_SLUG_FORMAT.getCode(),
+                "message", INVALID_SLUG_FORMAT.getMessage()
+            );
+            return ResponseEntity.status(INVALID_SLUG_FORMAT.getHttpCode()).body(error);
+        }
+
+        log.warn("Validation failed: {}", validationMessage);
+        Map<String, Object> error = Map.of(
+            "code", UNEXPECTED_SERVER_ERROR.getCode(),
+            "message", validationMessage != null ? validationMessage : UNEXPECTED_SERVER_ERROR.getMessage()
+        );
+        return ResponseEntity.badRequest().body(error);
     }
 
     @ExceptionHandler(Exception.class)

@@ -24,7 +24,7 @@ public class UpdateHomePageRequest {
     private UUID educationMediaId;
     private String reviewMessage;
     private List<UUID> reviewMediaIds;
-    private Map<String, String> extendedParameters;
+    private Map<String, Object> extendedParameters;
     @JsonProperty("isActive")
     private Boolean isActive;
     private List<ContactDto> contact;

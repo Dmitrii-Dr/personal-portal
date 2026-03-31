@@ -78,7 +78,7 @@ public class HomePage {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "extended_parameters", columnDefinition = "jsonb")
-    private Map<String, String> extendedParameters = new HashMap<>();
+    private Map<String, Object> extendedParameters = new HashMap<>();
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = false;
