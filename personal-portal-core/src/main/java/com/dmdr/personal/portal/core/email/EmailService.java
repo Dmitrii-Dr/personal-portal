@@ -128,4 +128,12 @@ public interface EmailService {
             String lastName,
             String verificationCode,
             int expiryMinutes);
+
+    /**
+     * Sends a notification to an admin that the application service has started.
+     *
+     * @param toEmail the admin recipient address
+     * @param startedAt instant of startup; rendered in the template in UTC
+     */
+    void sendAdminServiceStartedEmail(String toEmail, Instant startedAt);
 }

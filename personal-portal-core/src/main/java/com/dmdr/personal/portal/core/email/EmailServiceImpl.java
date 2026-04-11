@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Locale;
@@ -45,7 +46,8 @@ public class EmailServiceImpl implements EmailService {
         "booking-cancellation-user.html",
         "booking-cancellation-admin.html",
         "password-reset.html",
-        "account-verification-code.html"
+        "account-verification-code.html",
+        "service-started-admin.html"
     };
 
     /**
@@ -488,6 +490,27 @@ public class EmailServiceImpl implements EmailService {
         } catch (IOException e) {
             System.err.println("Failed to load account verification email template: " + e.getMessage());
             throw new RuntimeException("Failed to load account verification email template: " + e);
+        }
+    }
+
+    @Override
+    public void sendAdminServiceStartedEmail(String toEmail, Instant startedAt) {
+        sendAsync("service-started-admin", toEmail, () -> {
+            String htmlContent = buildAdminServiceStartedEmailHtml(startedAt);
+            htmlEmailDispatcher.sendHtml(toEmail, "Cервис запущен", htmlContent);
+        });
+    }
+
+    private String buildAdminServiceStartedEmailHtml(Instant startedAt) {
+        try {
+            String template = loadTemplate("service-started-admin.html");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
+                    .withZone(ZoneOffset.UTC);
+            String formatted = formatter.format(startedAt);
+            return template.replace("{{startDateTime}}", formatted);
+        } catch (IOException e) {
+            System.err.println("Failed to load service started admin email template: " + e.getMessage());
+            throw new RuntimeException("Failed to load service started admin email template: " + e);
         }
     }
 }
