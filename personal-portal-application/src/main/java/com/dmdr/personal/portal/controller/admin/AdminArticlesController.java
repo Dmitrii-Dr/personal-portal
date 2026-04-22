@@ -9,6 +9,7 @@ import com.dmdr.personal.portal.content.model.Article;
 import com.dmdr.personal.portal.content.service.ArticleService;
 import com.dmdr.personal.portal.service.CurrentUserService;
 import com.dmdr.personal.portal.users.model.User;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,7 +41,10 @@ public class AdminArticlesController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AdminArticleResponse>> getAllArticles() {
+    public ResponseEntity<List<AdminArticleResponse>> getAllArticles(HttpServletRequest httpRequest) {
+        String ctx = AdminApiLogSupport.http(httpRequest);
+        log.info("BEGIN getAllArticles {}", ctx);
+        try {
         List<Article> articles = articleService.findAll();
         // Comparator like in AdminUserController.getUsers (case-insensitive by lastName, null-safe)
         java.util.Comparator<User> comparator = java.util.Comparator.comparing(
@@ -87,32 +91,58 @@ public class AdminArticlesController {
                 })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);
+        } finally {
+            log.info("END getAllArticles {}", ctx);
+        }
     }
 
     @PostMapping
     public ResponseEntity<ArticleResponse> createArticle(@Valid @RequestBody CreateArticleRequest request) {
-        User author = currentUserService.getCurrentUser();
-        Article createdArticle = articleService.createArticle(request, author.getId());
-        ArticleResponse response = ArticleMapper.toResponse(createdArticle);
-
-        log.info("Article created successfully by admin: {}", createdArticle.getSlug());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        int titleLen = request.getTitle() != null ? request.getTitle().length() : 0;
+        int slugLen = request.getSlug() != null ? request.getSlug().length() : 0;
+        int mediaIdsCount = request.getMediaIds() != null ? request.getMediaIds().size() : 0;
+        String ctx = "status=" + request.getStatus()
+            + " titleLength=" + titleLen
+            + " slugLength=" + slugLen
+            + " mediaIdsCount=" + mediaIdsCount;
+        log.info("BEGIN createArticle {}", ctx);
+        try {
+            User author = currentUserService.getCurrentUser();
+            Article createdArticle = articleService.createArticle(request, author.getId());
+            ArticleResponse response = ArticleMapper.toResponse(createdArticle);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } finally {
+            log.info("END createArticle {}", ctx);
+        }
     }
 
     @PutMapping("/{articleId}")
     public ResponseEntity<ArticleResponse> updateArticle(
             @PathVariable("articleId") UUID articleId,
             @Valid @RequestBody UpdateArticleRequest request) {
-        Article updatedArticle = articleService.updateArticle(articleId, request);
-        ArticleResponse response = ArticleMapper.toResponse(updatedArticle);
-
-        log.info("Article updated successfully by admin: {}", updatedArticle.getSlug());
-        return ResponseEntity.ok(response);
+        int titleLen = request.getTitle() != null ? request.getTitle().length() : 0;
+        String ctx = "articleId=" + articleId
+            + " status=" + request.getStatus()
+            + " titleLength=" + titleLen;
+        log.info("BEGIN updateArticle {}", ctx);
+        try {
+            Article updatedArticle = articleService.updateArticle(articleId, request);
+            ArticleResponse response = ArticleMapper.toResponse(updatedArticle);
+            return ResponseEntity.ok(response);
+        } finally {
+            log.info("END updateArticle {}", ctx);
+        }
     }
 
     @DeleteMapping("/{articleId}")
     public ResponseEntity<Void> deleteArticle(@PathVariable("articleId") UUID articleId) {
-        articleService.deleteArticle(articleId);
-        return ResponseEntity.noContent().build();
+        String ctx = "articleId=" + articleId;
+        log.info("BEGIN deleteArticle {}", ctx);
+        try {
+            articleService.deleteArticle(articleId);
+            return ResponseEntity.noContent().build();
+        } finally {
+            log.info("END deleteArticle {}", ctx);
+        }
     }
 }

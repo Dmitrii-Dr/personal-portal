@@ -13,6 +13,7 @@ public class AdminBookingResponse extends BookingResponse {
 	private String clientEmail;
 	private String clientFirstName;
 	private String clientLastName;
+	private String clientPhoneNumber;
 
 	public AdminBookingResponse(BookingResponse bookingResponse, User client) {
 		// Copy all fields from BookingResponse
@@ -33,6 +34,7 @@ public class AdminBookingResponse extends BookingResponse {
 		this.clientEmail = client.getEmail();
 		this.clientFirstName = client.getFirstName();
 		this.clientLastName = client.getLastName();
+		this.clientPhoneNumber = client.getPhoneNumber();
 	}
 }
 

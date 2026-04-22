@@ -10,12 +10,15 @@ import com.dmdr.personal.portal.users.model.UserSettings;
 import com.dmdr.personal.portal.users.repository.UserRepository;
 import com.dmdr.personal.portal.users.repository.UserSettingsRepository;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
+import java.time.ZoneId;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserSettingsServiceImpl implements UserSettingsService {
+
+	private static final ZoneId DEFAULT_ZONE_ID = ZoneId.of("Europe/Moscow");
 
 	private final UserSettingsRepository userSettingsRepository;
 	private final UserRepository userRepository;
@@ -95,6 +98,22 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 			return true;
 		}
 		return settings.isEmailNotificationEnabled();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public ZoneId getUserZoneIdOrDefault(UUID userId) {
+		UserSettings settings = userSettingsRepository.findByUserId(userId).orElse(null);
+		if (settings == null || settings.getTimezoneId() == null) {
+			return DEFAULT_ZONE_ID;
+		}
+
+		try {
+			TimezoneEntry timezoneEntry = TimezoneEntry.getById(settings.getTimezoneId());
+			return ZoneId.of(timezoneEntry.getGmtOffset());
+		} catch (IllegalArgumentException e) {
+			return DEFAULT_ZONE_ID;
+		}
 	}
 
 }

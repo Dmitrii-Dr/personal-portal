@@ -20,7 +20,6 @@ import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Locale;
@@ -43,6 +42,8 @@ public class EmailServiceImpl implements EmailService {
         "booking-request-admin.html",
         "booking-request-user.html",
         "booking-update-request-user.html",
+        "booking-update-request-admin.html",
+        "booking-updated-by-admin-user.html",
         "booking-cancellation-user.html",
         "booking-cancellation-admin.html",
         "password-reset.html",
@@ -58,6 +59,8 @@ public class EmailServiceImpl implements EmailService {
     private static volatile Map<String, String> templateHtmlCache = new HashMap<>();
     private static volatile boolean templatesPreloaded = false;
     private static volatile String preloadedTemplatesDirectory = "";
+    private static final DateTimeFormatter EMAIL_DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"));
 
     private final HtmlEmailDispatcher htmlEmailDispatcher;
     private final EmailTemplateProperties emailTemplateProperties;
@@ -197,30 +200,28 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendBookingConfirmationEmail(String toEmail, String firstName, String lastName,
-                                            String sessionTypeName, Instant startTime) {
+                                            String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-confirmation", toEmail, () -> {
-            String htmlContent = buildBookingConfirmationEmailHtml(firstName, lastName, sessionTypeName, startTime);
+            String htmlContent = buildBookingConfirmationEmailHtml(firstName, lastName, sessionTypeName, startTime, recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Бронирование подтверждено — " + sessionTypeName, htmlContent);
         });
     }
 
     @Override
     public void sendBookingRejectionEmail(String toEmail, String firstName, String lastName,
-                                         String sessionTypeName, Instant startTime) {
+                                         String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-rejection", toEmail, () -> {
-            String htmlContent = buildBookingRejectionEmailHtml(firstName, lastName, sessionTypeName, startTime);
+            String htmlContent = buildBookingRejectionEmailHtml(firstName, lastName, sessionTypeName, startTime, recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отклонено — " + sessionTypeName, htmlContent);
         });
     }
 
-    private String buildBookingConfirmationEmailHtml(String firstName, String lastName, String sessionTypeName, Instant startTime) {
+    private String buildBookingConfirmationEmailHtml(String firstName, String lastName, String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-confirmation.html");
             
             String displayName = firstName + " " + lastName;
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedStartTime = formatter.format(startTime);
+            String formattedStartTime = formatDateTime(startTime, recipientZoneId);
             
             return template
                     .replace("{{displayName}}", displayName)
@@ -232,14 +233,12 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private String buildBookingRejectionEmailHtml(String firstName, String lastName, String sessionTypeName, Instant startTime) {
+    private String buildBookingRejectionEmailHtml(String firstName, String lastName, String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-rejection.html");
             
             String displayName = firstName + " " + lastName;
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedStartTime = formatter.format(startTime);
+            String formattedStartTime = formatDateTime(startTime, recipientZoneId);
             
             return template
                     .replace("{{displayName}}", displayName)
@@ -253,37 +252,39 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendBookingRequestAdminEmail(String toEmail, String clientName, String clientEmail,
-                                            String sessionTypeName, Instant startTime, String clientMessage) {
+                                            String sessionTypeName, Instant startTime, String clientMessage, ZoneId recipientZoneId) {
         sendAsync("booking-request-admin", toEmail, () -> {
-            String htmlContent = buildBookingRequestAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime, clientMessage);
+            String htmlContent = buildBookingRequestAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime, clientMessage, recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Новая заявка на бронирование — " + sessionTypeName, htmlContent);
         });
     }
 
     @Override
     public void sendBookingRequestUserEmail(String toEmail, String firstName, String lastName,
-            String sessionTypeName, Instant startTime, String clientMessage) {
+            String sessionTypeName, Instant startTime, String clientMessage, ZoneId recipientZoneId) {
         sendAsync("booking-request-user", toEmail, () -> {
             String htmlContent = buildBookingRequestUserEmailHtml(
                     firstName,
                     lastName,
                     sessionTypeName,
                     startTime,
-                    clientMessage);
+                    clientMessage,
+                    recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Заявка на бронирование получена — " + sessionTypeName, htmlContent);
         });
     }
 
     @Override
     public void sendBookingUpdateRequestUserEmail(String toEmail, String firstName, String lastName,
-            String sessionTypeName, Instant oldStartTime, Instant newStartTime) {
+            String sessionTypeName, Instant oldStartTime, Instant newStartTime, ZoneId recipientZoneId) {
         sendAsync("booking-update-request-user", toEmail, () -> {
             String htmlContent = buildBookingUpdateRequestUserEmailHtml(
                     firstName,
                     lastName,
                     sessionTypeName,
                     oldStartTime,
-                    newStartTime);
+                    newStartTime,
+                    recipientZoneId);
             htmlEmailDispatcher.sendHtml(
                     toEmail,
                     "Запрос на изменение бронирования получен — " + sessionTypeName,
@@ -292,31 +293,65 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendBookingUpdateRequestAdminEmail(String toEmail, String clientName, String clientEmail,
+            String sessionTypeName, Instant oldStartTime, Instant newStartTime, ZoneId recipientZoneId) {
+        sendAsync("booking-update-request-admin", toEmail, () -> {
+            String htmlContent = buildBookingUpdateRequestAdminEmailHtml(
+                    clientName,
+                    clientEmail,
+                    sessionTypeName,
+                    oldStartTime,
+                    newStartTime,
+                    recipientZoneId);
+            htmlEmailDispatcher.sendHtml(
+                    toEmail,
+                    "Запрос на изменение бронирования от клиента — " + sessionTypeName,
+                    htmlContent);
+        });
+    }
+
+    @Override
+    public void sendBookingUpdatedByAdminUserEmail(String toEmail, String firstName, String lastName,
+            String sessionTypeName, Instant oldStartTime, Instant newStartTime, ZoneId recipientZoneId) {
+        sendAsync("booking-updated-by-admin-user", toEmail, () -> {
+            String htmlContent = buildBookingUpdatedByAdminUserEmailHtml(
+                    firstName,
+                    lastName,
+                    sessionTypeName,
+                    oldStartTime,
+                    newStartTime,
+                    recipientZoneId);
+            htmlEmailDispatcher.sendHtml(
+                    toEmail,
+                    "Время бронирования обновлено администратором — " + sessionTypeName,
+                    htmlContent);
+        });
+    }
+
+    @Override
     public void sendBookingCancellationUserEmail(String toEmail, String firstName, String lastName,
-            String sessionTypeName, Instant startTime) {
+            String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-cancellation-user", toEmail, () -> {
-            String htmlContent = buildBookingCancellationUserEmailHtml(firstName, lastName, sessionTypeName, startTime);
+            String htmlContent = buildBookingCancellationUserEmailHtml(firstName, lastName, sessionTypeName, startTime, recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отменено — " + sessionTypeName, htmlContent);
         });
     }
 
     @Override
     public void sendBookingCancellationAdminEmail(String toEmail, String clientName, String clientEmail,
-            String sessionTypeName, Instant startTime) {
+            String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-cancellation-admin", toEmail, () -> {
-            String htmlContent = buildBookingCancellationAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime);
+            String htmlContent = buildBookingCancellationAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime, recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отменено — " + sessionTypeName, htmlContent);
         });
     }
 
     private String buildBookingRequestAdminEmailHtml(String clientName, String clientEmail, String sessionTypeName, 
-                                                    Instant startTime, String clientMessage) {
+                                                    Instant startTime, String clientMessage, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-request-admin.html");
             
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedStartTime = formatter.format(startTime);
+            String formattedStartTime = formatDateTime(startTime, recipientZoneId);
             
             String result = template
                     .replace("{{clientName}}", clientName != null ? clientName : "Unknown")
@@ -341,7 +376,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String buildBookingRequestUserEmailHtml(String firstName, String lastName, String sessionTypeName,
-            Instant startTime, String clientMessage) {
+            Instant startTime, String clientMessage, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-request-user.html");
 
@@ -349,9 +384,7 @@ public class EmailServiceImpl implements EmailService {
                     .filter(part -> part != null && !part.isBlank())
                     .collect(Collectors.joining(" "));
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedStartTime = formatter.format(startTime);
+            String formattedStartTime = formatDateTime(startTime, recipientZoneId);
 
             String result = template
                     .replace("{{displayName}}", displayName)
@@ -374,7 +407,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String buildBookingUpdateRequestUserEmailHtml(String firstName, String lastName, String sessionTypeName,
-            Instant oldStartTime, Instant newStartTime) {
+            Instant oldStartTime, Instant newStartTime, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-update-request-user.html");
 
@@ -382,10 +415,8 @@ public class EmailServiceImpl implements EmailService {
                     .filter(part -> part != null && !part.isBlank())
                     .collect(Collectors.joining(" "));
  
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedOldStartTime = formatter.format(oldStartTime);
-            String formattedNewStartTime = formatter.format(newStartTime);
+            String formattedOldStartTime = formatDateTime(oldStartTime, recipientZoneId);
+            String formattedNewStartTime = formatDateTime(newStartTime, recipientZoneId);
 
             return template
                     .replace("{{displayName}}", displayName)
@@ -398,8 +429,51 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    private String buildBookingUpdateRequestAdminEmailHtml(String clientName, String clientEmail, String sessionTypeName,
+            Instant oldStartTime, Instant newStartTime, ZoneId recipientZoneId) {
+        try {
+            String template = loadTemplate("booking-update-request-admin.html");
+
+            String formattedOldStartTime = formatDateTime(oldStartTime, recipientZoneId);
+            String formattedNewStartTime = formatDateTime(newStartTime, recipientZoneId);
+
+            return template
+                    .replace("{{clientName}}", clientName != null ? clientName : "Unknown")
+                    .replace("{{clientEmail}}", clientEmail != null ? clientEmail : "")
+                    .replace("{{sessionTypeName}}", sessionTypeName != null ? sessionTypeName : "Unknown Session")
+                    .replace("{{oldStartTime}}", formattedOldStartTime)
+                    .replace("{{newStartTime}}", formattedNewStartTime);
+        } catch (IOException e) {
+            System.err.println("Failed to load booking update request admin email template: " + e.getMessage());
+            throw new RuntimeException("Failed to load booking update request admin email template: " + e);
+        }
+    }
+
+    private String buildBookingUpdatedByAdminUserEmailHtml(String firstName, String lastName, String sessionTypeName,
+            Instant oldStartTime, Instant newStartTime, ZoneId recipientZoneId) {
+        try {
+            String template = loadTemplate("booking-updated-by-admin-user.html");
+
+            String displayName = Stream.of(firstName, lastName)
+                    .filter(part -> part != null && !part.isBlank())
+                    .collect(Collectors.joining(" "));
+
+            String formattedOldStartTime = formatDateTime(oldStartTime, recipientZoneId);
+            String formattedNewStartTime = formatDateTime(newStartTime, recipientZoneId);
+
+            return template
+                    .replace("{{displayName}}", displayName)
+                    .replace("{{sessionTypeName}}", sessionTypeName != null ? sessionTypeName : "your session")
+                    .replace("{{oldStartTime}}", formattedOldStartTime)
+                    .replace("{{newStartTime}}", formattedNewStartTime);
+        } catch (IOException e) {
+            System.err.println("Failed to load booking updated by admin user email template: " + e.getMessage());
+            throw new RuntimeException("Failed to load booking updated by admin user email template: " + e);
+        }
+    }
+
     private String buildBookingCancellationUserEmailHtml(String firstName, String lastName, String sessionTypeName,
-            Instant startTime) {
+            Instant startTime, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-cancellation-user.html");
 
@@ -407,9 +481,7 @@ public class EmailServiceImpl implements EmailService {
                     .filter(part -> part != null && !part.isBlank())
                     .collect(Collectors.joining(" "));
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedStartTime = formatter.format(startTime);
+            String formattedStartTime = formatDateTime(startTime, recipientZoneId);
 
             return template
                     .replace("{{displayName}}", displayName)
@@ -422,13 +494,11 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String buildBookingCancellationAdminEmailHtml(String clientName, String clientEmail, String sessionTypeName,
-            Instant startTime) {
+            Instant startTime, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("booking-cancellation-admin.html");
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneId.systemDefault());
-            String formattedStartTime = formatter.format(startTime);
+            String formattedStartTime = formatDateTime(startTime, recipientZoneId);
 
             return template
                     .replace("{{clientName}}", clientName != null ? clientName : "Unknown")
@@ -494,23 +564,25 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendAdminServiceStartedEmail(String toEmail, Instant startedAt) {
+    public void sendAdminServiceStartedEmail(String toEmail, Instant startedAt, ZoneId recipientZoneId) {
         sendAsync("service-started-admin", toEmail, () -> {
-            String htmlContent = buildAdminServiceStartedEmailHtml(startedAt);
+            String htmlContent = buildAdminServiceStartedEmailHtml(startedAt, recipientZoneId);
             htmlEmailDispatcher.sendHtml(toEmail, "Cервис запущен", htmlContent);
         });
     }
 
-    private String buildAdminServiceStartedEmailHtml(Instant startedAt) {
+    private String buildAdminServiceStartedEmailHtml(Instant startedAt, ZoneId recipientZoneId) {
         try {
             String template = loadTemplate("service-started-admin.html");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d MMMM yyyy 'в' HH:mm", Locale.forLanguageTag("ru-RU"))
-                    .withZone(ZoneOffset.UTC);
-            String formatted = formatter.format(startedAt);
+            String formatted = formatDateTime(startedAt, recipientZoneId);
             return template.replace("{{startDateTime}}", formatted);
         } catch (IOException e) {
             System.err.println("Failed to load service started admin email template: " + e.getMessage());
             throw new RuntimeException("Failed to load service started admin email template: " + e);
         }
+    }
+
+    private String formatDateTime(Instant time, ZoneId recipientZoneId) {
+        return EMAIL_DATE_TIME_FORMATTER.withZone(recipientZoneId).format(time);
     }
 }

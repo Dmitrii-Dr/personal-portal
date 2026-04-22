@@ -5,6 +5,7 @@ import com.dmdr.personal.portal.content.dto.CreateAgreementRequest;
 import com.dmdr.personal.portal.content.dto.UpdateAgreementRequest;
 import com.dmdr.personal.portal.content.model.Agreement;
 import com.dmdr.personal.portal.content.service.AgreementService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -34,53 +35,71 @@ public class AdminAgreementController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AgreementResponse>> getAllAgreements() {
-        log.debug("Getting all agreements");
-        List<Agreement> agreements = agreementService.findAll();
-        List<AgreementResponse> responses = agreements.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<List<AgreementResponse>> getAllAgreements(HttpServletRequest httpRequest) {
+        String ctx = AdminApiLogSupport.http(httpRequest);
+        log.info("BEGIN getAllAgreements {}", ctx);
+        try {
+            List<Agreement> agreements = agreementService.findAll();
+            List<AgreementResponse> responses = agreements.stream()
+                    .map(this::toResponse)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(responses);
+        } finally {
+            log.info("END getAllAgreements {}", ctx);
+        }
     }
 
     @PostMapping
     public ResponseEntity<AgreementResponse> createAgreement(@Valid @RequestBody CreateAgreementRequest request) {
-        log.info("Creating new agreement with name: {}", request.getName());
+        int nameLen = request.getName() != null ? request.getName().length() : 0;
+        int slugLen = request.getSlug() != null ? request.getSlug().length() : 0;
+        int contentLen = request.getContent() != null ? request.getContent().length() : 0;
+        String ctx = "nameLength=" + nameLen + " slugLength=" + slugLen + " contentLength=" + contentLen;
+        log.info("BEGIN createAgreement {}", ctx);
+        try {
+            Agreement agreement = new Agreement();
+            agreement.setName(request.getName());
+            agreement.setContent(request.getContent());
+            agreement.setSlug(request.getSlug());
 
-        Agreement agreement = new Agreement();
-        agreement.setName(request.getName());
-        agreement.setContent(request.getContent());
-        agreement.setSlug(request.getSlug());
-
-        Agreement created = agreementService.createAgreement(agreement);
-        log.info("Agreement created successfully with id: {}", created.getId());
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
+            Agreement created = agreementService.createAgreement(agreement);
+            return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
+        } finally {
+            log.info("END createAgreement {}", ctx);
+        }
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<AgreementResponse> updateAgreement(
             @PathVariable("id") UUID id,
             @Valid @RequestBody UpdateAgreementRequest request) {
-        log.info("Updating agreement with id: {}", id);
+        int nameLen = request.getName() != null ? request.getName().length() : 0;
+        int slugLen = request.getSlug() != null ? request.getSlug().length() : 0;
+        String ctx = "agreementId=" + id + " nameLength=" + nameLen + " slugLength=" + slugLen;
+        log.info("BEGIN updateAgreement {}", ctx);
+        try {
+            Agreement agreement = new Agreement();
+            agreement.setName(request.getName());
+            agreement.setContent(request.getContent());
+            agreement.setSlug(request.getSlug());
 
-        Agreement agreement = new Agreement();
-        agreement.setName(request.getName());
-        agreement.setContent(request.getContent());
-        agreement.setSlug(request.getSlug());
-
-        Agreement updated = agreementService.updateAgreement(id, agreement);
-        log.info("Agreement updated successfully with id: {}", updated.getId());
-
-        return ResponseEntity.ok(toResponse(updated));
+            Agreement updated = agreementService.updateAgreement(id, agreement);
+            return ResponseEntity.ok(toResponse(updated));
+        } finally {
+            log.info("END updateAgreement {}", ctx);
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAgreement(@PathVariable("id") UUID id) {
-        log.info("Deleting agreement with id: {}", id);
-        agreementService.deleteAgreement(id);
-        log.info("Agreement deleted successfully with id: {}", id);
-        return ResponseEntity.noContent().build();
+        String ctx = "agreementId=" + id;
+        log.info("BEGIN deleteAgreement {}", ctx);
+        try {
+            agreementService.deleteAgreement(id);
+            return ResponseEntity.noContent().build();
+        } finally {
+            log.info("END deleteAgreement {}", ctx);
+        }
     }
 
     private AgreementResponse toResponse(Agreement agreement) {

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"
+      xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+    <title>Время бронирования обновлено</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        *,*::before,*::after{box-sizing:border-box}
+        body,html{margin:0;padding:0;width:100%}
+        body{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:#f0f4f4;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+        a{text-decoration:none}
+        .email-wrapper{background-color:#f0f4f4;padding:40px 16px}
+        .email-card{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 40px rgba(44,95,95,.12)}
+        .hero{background:linear-gradient(135deg,#2C5F5F 0%,#1F4545 100%);padding:56px 40px 48px;color:#fff}
+        .hero-logo{display:inline-block;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 18px;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.85);margin-bottom:24px}
+        .hero h1{margin:0 0 16px;font-size:32px;font-weight:800;line-height:1.2}
+        .hero-sub{margin:0 0 24px;font-size:16px;line-height:1.7;color:rgba(255,255,255,.78)}
+        .btn-primary{display:inline-block;background:#fff;color:#2C5F5F;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px}
+        .section{padding:36px 40px;border-bottom:1px solid #E0F0F0}
+        .section-alt{padding:36px 40px;background:#F0F7F7;border-bottom:1px solid #E0F0F0}
+        .divider-line{width:56px;height:3px;background:#2C5F5F;border-radius:2px;margin-bottom:10px}
+        .section-label{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#4A9B9B;margin:0 0 6px}
+        .section-title{font-size:22px;font-weight:800;color:#1F4545;letter-spacing:-.01em;margin:0 0 16px}
+        p{margin:0 0 12px;color:#374151;line-height:1.7}
+        .features-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .feature-card{background:#fff;border-radius:12px;padding:20px 18px;border:1px solid #D9EEEE}
+        .feature-title{font-size:14px;font-weight:700;color:#1F4545;margin:0 0 6px}
+        .feature-desc{font-size:13px;line-height:1.6;color:#6B8080;margin:0}
+        .footer{padding:28px 40px;background:#fff;text-align:center}
+        .footer-logo{font-size:16px;font-weight:800;color:#2C5F5F;letter-spacing:.05em;text-transform:uppercase;margin-bottom:16px}
+        .footer-legal{font-size:12px;color:#9CA3AF;line-height:1.7;margin:0}
+        .footer-legal a{color:#4A9B9B}
+        @media (max-width:520px){.email-wrapper{padding:16px 8px}.hero,.section,.section-alt,.footer{padding-left:24px;padding-right:24px}.features-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+<div class="email-wrapper" role="main">
+    <div class="email-card">
+        <header class="hero" role="banner">
+            <div class="hero-logo">✦ Обновление</div>
+            <h1>Время бронирования обновлено</h1>
+            <p class="hero-sub">Администратор обновил время вашей записи. Проверьте новые детали.</p>
+            <a href="https://your-domain.com/booking" class="btn-primary" role="button">Открыть портал</a>
+        </header>
+        <section class="section" aria-labelledby="greeting-heading">
+            <div class="divider-line"></div>
+            <h2 id="greeting-heading" class="section-title">Привет, {{displayName}}!</h2>
+            <p>Время бронирования для сессии <strong>{{sessionTypeName}}</strong> было обновлено администратором.</p>
+            <p>— <strong>Команда Personal Portal</strong></p>
+        </section>
+        <section class="section-alt" aria-labelledby="details-heading">
+            <div class="divider-line"></div>
+            <p class="section-label">Детали</p>
+            <h2 id="details-heading" class="section-title">Обновленные данные</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <p class="feature-title">Предыдущее время</p>
+                    <p class="feature-desc">{{oldStartTime}}</p>
+                </div>
+                <div class="feature-card">
+                    <p class="feature-title">Новое время</p>
+                    <p class="feature-desc">{{newStartTime}}</p>
+                </div>
+            </div>
+        </section>
+        <footer class="footer" role="contentinfo">
+            <div class="footer-logo">Personal Portal</div>
+            <p class="footer-legal">
+                Вы получили это письмо, потому что ваша запись была обновлена на
+                <a href="https://your-domain.com/">your-domain.com</a>.<br />
+                © 2026 Personal Portal. Все права защищены.<br /><br />
+                <a href="https://your-domain.com/agreement/privacy">Политика конфиденциальности</a> &nbsp;·&nbsp;
+                <a href="https://your-domain.com/agreement/terms">Условия использования</a> &nbsp;·&nbsp;
+                <a href="{{unsubscribe_url}}">Отписаться</a>
+            </p>
+        </footer>
+    </div>
+</div>
+</body>
+</html>

@@ -28,6 +28,7 @@ import com.dmdr.personal.portal.users.service.UserSettingsService;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -165,13 +166,15 @@ public class BookingServiceImpl implements BookingService {
 
         try {
             if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                ZoneId clientZoneId = userSettingsService.getUserZoneIdOrDefault(client.getId());
                 emailService.sendBookingRequestUserEmail(
                         client.getEmail(),
                         client.getFirstName(),
                         client.getLastName(),
                         sessionType.getName(),
                         saved.getStartTime(),
-                        saved.getClientMessage()
+                        saved.getClientMessage(),
+                        clientZoneId
                 );
             }
         } catch (Exception e) {
@@ -189,13 +192,15 @@ public class BookingServiceImpl implements BookingService {
 
             for (User admin : adminUsers) {
                 try {
+                    ZoneId adminZoneId = userSettingsService.getUserZoneIdOrDefault(admin.getId());
                     emailService.sendBookingRequestAdminEmail(
                             admin.getEmail(),
                             clientName,
                             client.getEmail(),
                             sessionType.getName(),
                             saved.getStartTime(),
-                            saved.getClientMessage()
+                            saved.getClientMessage(),
+                            adminZoneId
                     );
                 } catch (Exception e) {
                     log.error("Failed to send booking request email to admin " + admin.getId() + ": " + e.getMessage());
@@ -311,17 +316,48 @@ public class BookingServiceImpl implements BookingService {
 
         try {
             if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                ZoneId clientZoneId = userSettingsService.getUserZoneIdOrDefault(client.getId());
                 emailService.sendBookingUpdateRequestUserEmail(
                         client.getEmail(),
                         client.getFirstName(),
                         client.getLastName(),
                         bookingToUpdate.getSessionName(),
                         oldStartTime,
-                        saved.getStartTime()
+                        saved.getStartTime(),
+                        clientZoneId
                 );
             }
         } catch (Exception e) {
             log.error("Failed to send booking update request user email to {}: {}", client.getId(), e.getMessage());
+        }
+
+        // Send email notification to all admin users about the update request
+        try {
+            List<User> adminUsers = userService.findByRoleName(SystemRole.ADMIN.getAuthority(), null);
+            String clientName = (client.getFirstName() != null ? client.getFirstName() : "")
+                    + (client.getLastName() != null ? " " + client.getLastName() : "").trim();
+            if (clientName.isEmpty()) {
+                clientName = "Unknown User";
+            }
+
+            for (User admin : adminUsers) {
+                try {
+                    ZoneId adminZoneId = userSettingsService.getUserZoneIdOrDefault(admin.getId());
+                    emailService.sendBookingUpdateRequestAdminEmail(
+                            admin.getEmail(),
+                            clientName,
+                            client.getEmail(),
+                            bookingToUpdate.getSessionName(),
+                            oldStartTime,
+                            saved.getStartTime(),
+                            adminZoneId
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to send booking update request email to admin {}: {}", admin.getId(), e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to send booking update request notifications to admins: {}", e.getMessage());
         }
 
         return toResponse(saved);
@@ -332,6 +368,7 @@ public class BookingServiceImpl implements BookingService {
     public AdminBookingResponse updateByAdmin(UpdateBookingAdminRequest request) {
         Booking bookingToUpdate = bookingRepository.findById(request.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + request.getId()));
+        Instant oldStartTime = bookingToUpdate.getStartTime();
 
         // Validate booking status is CONFIRMED or PENDING_APPROVAL
         BookingStatus currentStatus = bookingToUpdate.getStatus();
@@ -365,6 +402,23 @@ public class BookingServiceImpl implements BookingService {
             // Keep the existing status (CONFIRMED or PENDING_APPROVAL)
 
             saved = bookingRepository.saveAndFlush(bookingToUpdate);
+        }
+
+        try {
+            if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                ZoneId clientZoneId = userSettingsService.getUserZoneIdOrDefault(client.getId());
+                emailService.sendBookingUpdatedByAdminUserEmail(
+                        client.getEmail(),
+                        client.getFirstName(),
+                        client.getLastName(),
+                        bookingToUpdate.getSessionName(),
+                        oldStartTime,
+                        saved.getStartTime(),
+                        clientZoneId
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to send booking updated by admin email to {}: {}", client.getId(), e.getMessage());
         }
 
         return toAdminResponse(saved);
@@ -405,12 +459,14 @@ public class BookingServiceImpl implements BookingService {
         User client = saved.getClient();
         try {
             if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
+                ZoneId clientZoneId = userSettingsService.getUserZoneIdOrDefault(client.getId());
                 emailService.sendBookingCancellationUserEmail(
                         client.getEmail(),
                         client.getFirstName(),
                         client.getLastName(),
                         saved.getSessionName(),
-                        saved.getStartTime()
+                        saved.getStartTime(),
+                        clientZoneId
                 );
             }
         } catch (Exception e) {
@@ -428,12 +484,14 @@ public class BookingServiceImpl implements BookingService {
 
             for (User admin : adminUsers) {
                 try {
+                    ZoneId adminZoneId = userSettingsService.getUserZoneIdOrDefault(admin.getId());
                     emailService.sendBookingCancellationAdminEmail(
                             admin.getEmail(),
                             clientName,
                             client.getEmail(),
                             saved.getSessionName(),
-                            saved.getStartTime()
+                            saved.getStartTime(),
+                            adminZoneId
                     );
                 } catch (Exception e) {
                     log.error("Failed to send booking cancellation email to admin {}: {}", admin.getId(), e.getMessage());
@@ -518,24 +576,28 @@ public class BookingServiceImpl implements BookingService {
 
         if (newStatus == BookingStatus.CONFIRMED && emailEnabled) {
             try {
+                ZoneId clientZoneId = userSettingsService.getUserZoneIdOrDefault(client.getId());
                 emailService.sendBookingConfirmationEmail(
                         client.getEmail(),
                         client.getFirstName(),
                         client.getLastName(),
                         booking.getSessionName(),
-                        booking.getStartTime()
+                        booking.getStartTime(),
+                        clientZoneId
                 );
             } catch (Exception e) {
                 System.err.println("Failed to send booking confirmation email: " + e.getMessage());
             }
         } else if (newStatus == BookingStatus.DECLINED && emailEnabled) {
             try {
+                ZoneId clientZoneId = userSettingsService.getUserZoneIdOrDefault(client.getId());
                 emailService.sendBookingRejectionEmail(
                         client.getEmail(),
                         client.getFirstName(),
                         client.getLastName(),
                         booking.getSessionName(),
-                        booking.getStartTime()
+                        booking.getStartTime(),
+                        clientZoneId
                 );
             } catch (Exception e) {
                 System.err.println("Failed to send booking rejection email: " + e.getMessage());

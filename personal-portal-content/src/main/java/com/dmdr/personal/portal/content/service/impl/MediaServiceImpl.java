@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.content.service.impl;
 
 import com.dmdr.personal.portal.content.model.MediaEntity;
+import com.dmdr.personal.portal.content.repository.ArticleRepository;
 import com.dmdr.personal.portal.content.repository.HomePageRepository;
 import com.dmdr.personal.portal.content.repository.MediaRepository;
 import com.dmdr.personal.portal.content.service.MediaService;
@@ -24,12 +25,15 @@ import java.util.UUID;
 public class MediaServiceImpl implements MediaService {
 
     private final MediaRepository mediaRepository;
+    private final ArticleRepository articleRepository;
     private final ObjectStorageService objectStorageService;
     private final HomePageRepository homePageRepository;
 
-    public MediaServiceImpl(MediaRepository mediaRepository, ObjectStorageService objectStorageService,
+    public MediaServiceImpl(MediaRepository mediaRepository, ArticleRepository articleRepository,
+            ObjectStorageService objectStorageService,
             HomePageRepository homePageRepository) {
         this.mediaRepository = mediaRepository;
+        this.articleRepository = articleRepository;
         this.objectStorageService = objectStorageService;
         this.homePageRepository = homePageRepository;
     }
@@ -164,14 +168,14 @@ public class MediaServiceImpl implements MediaService {
             throw new IllegalArgumentException("Media id cannot be null");
         }
 
-        MediaEntity mediaEntity = mediaRepository.findByMediaId(mediaId)
+        mediaRepository.findByMediaId(mediaId)
                 .orElseThrow(() -> new IllegalArgumentException("Media with id " + mediaId + " not found"));
 
-        // Check if media is used by any articles
-        if (mediaEntity.getArticles() != null && !mediaEntity.getArticles().isEmpty()) {
+        long articleRefCount = articleRepository.countByMediaFiles_MediaId(mediaId);
+        if (articleRefCount > 0) {
             throw new IllegalArgumentException(
                     "Cannot delete media with id " + mediaId + " because it is being used by "
-                            + mediaEntity.getArticles().size() + " article(s)");
+                            + articleRefCount + " article(s)");
         }
 
         // Check if media is used by HomePage
@@ -190,15 +194,16 @@ public class MediaServiceImpl implements MediaService {
             throw new IllegalArgumentException("Media id cannot be null");
         }
 
-        // Step 1: Fetch and validate media entity
+        // Step 1: Fetch media row (fileUrl only needed after validation)
         MediaEntity mediaEntity = mediaRepository.findByMediaId(mediaId)
                 .orElseThrow(() -> new IllegalArgumentException("Media with id " + mediaId + " not found"));
 
-        // Step 2: Validate that media is not used by articles (before any deletions)
-        if (mediaEntity.getArticles() != null && !mediaEntity.getArticles().isEmpty()) {
+        // Step 2: Validate that media is not used by articles (COUNT only — no Article rows loaded)
+        long articleRefCount = articleRepository.countByMediaFiles_MediaId(mediaId);
+        if (articleRefCount > 0) {
             throw new IllegalArgumentException(
                     "Cannot delete media with id " + mediaId + " because it is being used by "
-                            + mediaEntity.getArticles().size() + " article(s)");
+                            + articleRefCount + " article(s)");
         }
 
         // Check if media is used by HomePage
@@ -213,11 +218,11 @@ public class MediaServiceImpl implements MediaService {
 
         // Delete thumbnail from object storage
         objectStorageService.deleteFile(thumbnailKey);
-        log.debug("Thumbnail deleted from object storage with key: {}", thumbnailKey);
+        log.info("Thumbnail deleted from object storage with key: {}", thumbnailKey);
 
         // Delete original image from object storage
         objectStorageService.deleteFile(key);
-        log.debug("Original file deleted from object storage with key: {}", key);
+        log.info("Original file deleted from object storage with key: {}", key);
 
         // Step 4: Delete from database
         mediaRepository.deleteById(mediaId);

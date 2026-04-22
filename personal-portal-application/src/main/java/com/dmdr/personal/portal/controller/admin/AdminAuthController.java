@@ -34,6 +34,12 @@ public class AdminAuthController {
 
 	@PostMapping("/user/registry")
 	public ResponseEntity<UserResponseForAdmin> registry(@Valid @RequestBody CreateUserAdminRequest request) {
+		String ctx = "timezoneId=" + request.getTimezoneId()
+			+ " emailNotifications=" + (request.getEmailNotificationEnabled() != null
+				? request.getEmailNotificationEnabled()
+				: "default");
+		log.info("BEGIN adminUserRegistry {}", ctx);
+		try {
 		// Create user by admin
 		User user = userService.createUserByAdmin(
 				request.getEmail(),
@@ -54,10 +60,13 @@ public class AdminAuthController {
 				emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName(), user.getLastName());
 			} catch (Exception e) {
 				// Log error but don't fail user creation if email fails
-				log.error("Failed to send welcome email to user " + user.getId() + ": " + e.getMessage());
+				log.error("Failed to send welcome email after admin user registry", e);
 			}
 		}
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(UserResponseForAdmin.from(user));
+		} finally {
+			log.info("END adminUserRegistry {}", ctx);
+		}
 	}
 }

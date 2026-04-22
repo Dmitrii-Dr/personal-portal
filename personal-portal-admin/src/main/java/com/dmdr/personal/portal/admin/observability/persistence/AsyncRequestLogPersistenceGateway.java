@@ -53,7 +53,7 @@ public class AsyncRequestLogPersistenceGateway implements RequestLogPersistenceG
 
     @Override
     public void enqueue(RequestLogRecord record) {
-        log.info("Enqueuing request-log record: {}", record);
+        log.debug("Enqueuing request-log record: {}", record);
         if (record == null) {
             return;
         }

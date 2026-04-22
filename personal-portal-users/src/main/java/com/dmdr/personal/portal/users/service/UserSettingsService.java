@@ -4,6 +4,7 @@ import com.dmdr.personal.portal.core.model.Currency;
 import com.dmdr.personal.portal.users.dto.CreateUserSettingsRequest;
 import com.dmdr.personal.portal.users.dto.UpdateUserSettingsRequest;
 import com.dmdr.personal.portal.users.dto.UserSettingsResponse;
+import java.time.ZoneId;
 import java.util.UUID;
 
 public interface UserSettingsService {
@@ -12,4 +13,5 @@ public interface UserSettingsService {
 	UserSettingsResponse updateSettings(UUID userId, UpdateUserSettingsRequest request);
 	Currency getUserCurrency(UUID userId);
 	boolean isEmailNotificationEnabled(UUID userId);
+	ZoneId getUserZoneIdOrDefault(UUID userId);
 }

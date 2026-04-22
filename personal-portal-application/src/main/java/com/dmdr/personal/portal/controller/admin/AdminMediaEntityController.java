@@ -45,6 +45,11 @@ public class AdminMediaEntityController {
 
     @PostMapping("/media/image")
     public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+        String contentType = file.getContentType() != null ? file.getContentType() : "unknown";
+        long sizeBytes = file.getSize();
+        String ctx = "contentType=" + contentType + " sizeBytes=" + sizeBytes;
+        log.info("BEGIN uploadImage {}", ctx);
+        try {
         String validationError = ImageFileValidator.validateImageFile(file);
         if (validationError != null) {
             return ResponseEntity.badRequest().body(Map.of("error", validationError));
@@ -95,6 +100,9 @@ public class AdminMediaEntityController {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to upload file: " + e.getMessage()));
         }
+        } finally {
+            log.info("END uploadImage {}", ctx);
+        }
     }
 
     private String determineFileType(MultipartFile file) {
@@ -121,6 +129,9 @@ public class AdminMediaEntityController {
     @GetMapping("/media")
     public ResponseEntity<PaginatedResponse<MediaEntityResponse>> getMediaGallery(
             @PageableDefault(size = 20) Pageable pageable) {
+        String ctx = "page=" + pageable.getPageNumber() + " size=" + pageable.getPageSize();
+        log.info("BEGIN getMediaGallery {}", ctx);
+        try {
         Page<MediaEntity> mediaPage = mediaService.findAll(pageable);
 
         // Map entities to DTOs manually to ensure all items are included
@@ -141,10 +152,15 @@ public class AdminMediaEntityController {
                 content.size());
 
         return ResponseEntity.ok(paginatedResponse);
+        } finally {
+            log.info("END getMediaGallery {}", ctx);
+        }
     }
 
     @DeleteMapping("/media/image/{mediaId}")
     public ResponseEntity<Map<String, String>> deleteImage(@PathVariable("mediaId") UUID mediaId) {
+        String ctx = "mediaId=" + mediaId;
+        log.info("BEGIN deleteImage {}", ctx);
         try {
             // Validation and deletion (including storage cleanup) are handled in the
             // service layer
@@ -160,6 +176,8 @@ public class AdminMediaEntityController {
         } catch (RuntimeException e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to delete file: " + e.getMessage()));
+        } finally {
+            log.info("END deleteImage {}", ctx);
         }
     }
 

@@ -11,6 +11,7 @@ import com.dmdr.personal.portal.booking.model.BookingStatus;
 import com.dmdr.personal.portal.booking.service.BookingService;
 import com.dmdr.personal.portal.controller.util.BookingStatusParser;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -29,6 +30,7 @@ import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/admin/session/booking")
+@Slf4j
 public class AdminBookingController {
 
     private final BookingService bookingService;
@@ -39,32 +41,54 @@ public class AdminBookingController {
 
     @PostMapping
     public ResponseEntity<AdminBookingResponse> createBooking(@Valid @RequestBody CreateBookingAdminRequest request) {
-        AdminBookingResponse response = bookingService.createByAdmin(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        String ctx = "userId=" + request.getUserId()
+            + " sessionTypeId=" + request.getSessionTypeId()
+            + " startTime=" + request.getStartTimeInstant();
+        log.info("BEGIN createBookingAdmin {}", ctx);
+        try {
+            AdminBookingResponse response = bookingService.createByAdmin(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } finally {
+            log.info("END createBookingAdmin {}", ctx);
+        }
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<AdminBookingResponse> updateBooking(
             @PathVariable Long id,
             @Valid @RequestBody UpdateBookingAdminRequest request) {
-        // Validate that path variable id matches request body id
-        if (!id.equals(request.getId())) {
-            throw new IllegalArgumentException("Path variable id does not match request body id");
+        String ctx = "bookingId=" + id + " userId=" + request.getUserId();
+        log.info("BEGIN updateBookingAdmin {}", ctx);
+        try {
+            // Validate that path variable id matches request body id
+            if (!id.equals(request.getId())) {
+                throw new IllegalArgumentException("Path variable id does not match request body id");
+            }
+            AdminBookingResponse response = bookingService.updateByAdmin(request);
+            return ResponseEntity.ok(response);
+        } finally {
+            log.info("END updateBookingAdmin {}", ctx);
         }
-        AdminBookingResponse response = bookingService.updateByAdmin(request);
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/status/{status}")
     public ResponseEntity<Page<AdminBookingResponse>> getBookingsByStatus(
             @PathVariable("status") BookingStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Booking> bookingsPage = bookingService.getAllBookingsByStatus(status, pageable);
-        Page<AdminBookingResponse> adminBookingsPage = bookingsPage.map(booking -> {
-            BookingResponse bookingResponse = toBookingResponse(booking);
-            return new AdminBookingResponse(bookingResponse, booking.getClient());
-        });
-        return ResponseEntity.ok(adminBookingsPage);
+        String ctx = "status=" + status
+            + " page=" + pageable.getPageNumber()
+            + " size=" + pageable.getPageSize();
+        log.info("BEGIN getBookingsByStatus {}", ctx);
+        try {
+            Page<Booking> bookingsPage = bookingService.getAllBookingsByStatus(status, pageable);
+            Page<AdminBookingResponse> adminBookingsPage = bookingsPage.map(booking -> {
+                BookingResponse bookingResponse = toBookingResponse(booking);
+                return new AdminBookingResponse(bookingResponse, booking.getClient());
+            });
+            return ResponseEntity.ok(adminBookingsPage);
+        } finally {
+            log.info("END getBookingsByStatus {}", ctx);
+        }
     }
 
     private BookingResponse toBookingResponse(Booking booking) {
@@ -87,13 +111,24 @@ public class AdminBookingController {
     public ResponseEntity<AdminBookingsGroupedByStatusResponse> getBookingsByStatuses(
             @RequestParam(value = "status", required = false) String statusParam) {
         Set<BookingStatus> statuses = BookingStatusParser.parseStatuses(statusParam);
-        AdminBookingsGroupedByStatusResponse response = bookingService.getBookingsGroupedByStatus(statuses);
-        return ResponseEntity.ok(response);
+        log.info("BEGIN getBookingsGroupedByStatus {}", statusParam);
+        try {
+            AdminBookingsGroupedByStatusResponse response = bookingService.getBookingsGroupedByStatus(statuses);
+            return ResponseEntity.ok(response);
+        } finally {
+            log.info("END getBookingsGroupedByStatus {}", statusParam);
+        }
     }
 
     @PutMapping("/status")
     public ResponseEntity<BookingResponse> updateBookingStatus(@Valid @RequestBody UpdateBookingStatusRequest request) {
-        BookingResponse updatedBooking = bookingService.updateStatus(request);
-        return ResponseEntity.ok(updatedBooking);
+        String ctx = "bookingId=" + request.getId() + " status=" + request.getStatus();
+        log.info("BEGIN updateBookingStatus {}", ctx);
+        try {
+            BookingResponse updatedBooking = bookingService.updateStatus(request);
+            return ResponseEntity.ok(updatedBooking);
+        } finally {
+            log.info("END updateBookingStatus {}", ctx);
+        }
     }
 }

@@ -21,5 +21,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID> {
 
     List<Article> findByArticleIdIn(List<UUID> articleIds);
 
+    /**
+     * Counts articles referencing this media via the article_media join. Does not load {@link Article} rows.
+     */
+    long countByMediaFiles_MediaId(UUID mediaId);
+
 }
 
