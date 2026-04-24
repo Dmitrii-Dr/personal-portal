@@ -46,6 +46,7 @@ public class AdminUserController {
                         dto.setEmail(user.getEmail());
                         dto.setFirstName(user.getFirstName());
                         dto.setLastName(user.getLastName());
+                        dto.setPhoneNumber(user.getPhoneNumber());
                         dto.setVerified(user.isActive());
                         dto.setCreatedAt(user.getCreatedAt());
                         dto.setUpdatedAt(user.getUpdatedAt());

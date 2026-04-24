@@ -40,7 +40,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @Slf4j
@@ -55,6 +57,7 @@ public class BookingServiceImpl implements BookingService {
     private final EmailService emailService;
     private final com.dmdr.personal.portal.users.service.UserService userService;
     private final UserSettingsService userSettingsService;
+    private final TransactionTemplate transactionTemplate;
 
     public BookingServiceImpl(
             BookingRepository bookingRepository,
@@ -64,7 +67,8 @@ public class BookingServiceImpl implements BookingService {
             AvailabilityService availabilityService,
             EmailService emailService,
             com.dmdr.personal.portal.users.service.UserService userService,
-            UserSettingsService userSettingsService
+            UserSettingsService userSettingsService,
+            PlatformTransactionManager transactionManager
     ) {
         this.bookingRepository = bookingRepository;
         this.sessionTypeRepository = sessionTypeRepository;
@@ -74,6 +78,7 @@ public class BookingServiceImpl implements BookingService {
         this.emailService = emailService;
         this.userService = userService;
         this.userSettingsService = userSettingsService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -124,45 +129,56 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    @Transactional
     public BookingResponse create(UUID userId, CreateBookingRequest request) {
+        // transactionTemplate.execute() opens a transaction, validates, writes, and COMMITS
+        // before releasing the lock — so the next thread entering the synchronized block will
+        // see the committed booking and validateBookingAvailability will correctly detect the
+        // conflict. With @Transactional on the outer method the commit happened after the lock
+        // was released, making the synchronized guard ineffective.
+        Booking saved;
+        synchronized (bookingLock) {
+            saved = transactionTemplate.execute(status -> {
+                User client = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                SessionType sessionType = sessionTypeRepository.findById(request.getSessionTypeId())
+                        .orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + request.getSessionTypeId()));
+
+                if (!sessionType.isActive()) {
+                    throw new IllegalArgumentException("Cannot create booking with inactive session type");
+                }
+
+                Instant endTime = request.getStartTimeInstant().plusSeconds(
+                        (sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
+                );
+
+                availabilityService.validateBookingAvailability(request.getStartTimeInstant(), endTime);
+
+                Booking entity = new Booking();
+                entity.setClient(client);
+                entity.setSessionName(sessionType.getName());
+                entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
+                entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
+                Currency userCurrency = userSettingsService.getUserCurrency(userId);
+                Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
+                entity.setSessionPrices(filteredPrices);
+                entity.setSessionDescription(sessionType.getDescription());
+                entity.setStartTime(request.getStartTimeInstant());
+                entity.setEndTime(endTime);
+                entity.setStatus(BookingStatus.PENDING_APPROVAL);
+                entity.setClientMessage(request.getClientMessage());
+
+                return bookingRepository.saveAndFlush(entity);
+            });
+            if (saved == null) {
+                throw new IllegalStateException("Booking transaction returned null unexpectedly");
+            }
+        }
+
+        // Reload for email sending — outside the lock so we don't hold it during I/O
         User client = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
         SessionType sessionType = sessionTypeRepository.findById(request.getSessionTypeId())
                 .orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + request.getSessionTypeId()));
-
-        if (!sessionType.isActive()) {
-            throw new IllegalArgumentException("Cannot create booking with inactive session type");
-        }
-
-        // Calculate endTime: startTime + duration + buffer
-        Instant endTime = request.getStartTimeInstant().plusSeconds(
-                (sessionType.getDurationMinutes() + sessionType.getBufferMinutes()) * 60L
-        );
-
-        Booking saved = null;
-        synchronized (bookingLock) {
-            availabilityService.validateBookingAvailability(request.getStartTimeInstant(), endTime);
-
-            Booking entity = new Booking();
-            entity.setClient(client);
-            // Copy session type data into booking (denormalization)
-            entity.setSessionName(sessionType.getName());
-            entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
-            entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
-            // Copy session type prices filtered by user's currency
-            Currency userCurrency = userSettingsService.getUserCurrency(userId);
-            Map<String, BigDecimal> filteredPrices = filterPricesByCurrency(sessionType.getPrices(), userCurrency);
-            entity.setSessionPrices(filteredPrices);
-            entity.setSessionDescription(sessionType.getDescription());
-            entity.setStartTime(request.getStartTimeInstant());
-            // Set endTime (includes duration + buffer for validation purposes)
-            entity.setEndTime(endTime);
-            entity.setStatus(BookingStatus.PENDING_APPROVAL);
-            entity.setClientMessage(request.getClientMessage());
-
-            saved = bookingRepository.saveAndFlush(entity);
-        }
 
         try {
             if (userSettingsService.isEmailNotificationEnabled(client.getId())) {
@@ -181,7 +197,6 @@ public class BookingServiceImpl implements BookingService {
             log.error("Failed to send booking request user email to {}: {}", client.getId(), e.getMessage());
         }
 
-        // Send email notification to all admin users
         try {
             List<User> adminUsers = userService.findByRoleName(SystemRole.ADMIN.getAuthority(), null);
             String clientName = (client.getFirstName() != null ? client.getFirstName() : "")
@@ -207,7 +222,7 @@ public class BookingServiceImpl implements BookingService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Failed to send booking request notifications to admins: " + e.getMessage());
+            log.error("Failed to send booking request notifications to admins: {}", e.getMessage());
         }
 
         return toResponse(saved);

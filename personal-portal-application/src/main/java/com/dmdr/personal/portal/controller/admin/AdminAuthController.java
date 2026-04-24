@@ -34,7 +34,11 @@ public class AdminAuthController {
 
 	@PostMapping("/user/registry")
 	public ResponseEntity<UserResponseForAdmin> registry(@Valid @RequestBody CreateUserAdminRequest request) {
+		String normalizedEmail = request.getEmail() == null || request.getEmail().isBlank()
+			? null
+			: request.getEmail().trim();
 		String ctx = "timezoneId=" + request.getTimezoneId()
+			+ " emailProvided=" + (normalizedEmail != null)
 			+ " emailNotifications=" + (request.getEmailNotificationEnabled() != null
 				? request.getEmailNotificationEnabled()
 				: "default");
@@ -42,7 +46,7 @@ public class AdminAuthController {
 		try {
 		// Create user by admin
 		User user = userService.createUserByAdmin(
-				request.getEmail(),
+				normalizedEmail,
 				request.getFirstName(),
 				request.getLastName(),
 				request.getPhoneNumber());
@@ -55,7 +59,7 @@ public class AdminAuthController {
 		userSettingsService.createSettings(user.getId(), settingsRequest);
 
 		// Send welcome email if email notifications are enabled (check UserSettings)
-		if (userSettingsService.isEmailNotificationEnabled(user.getId())) {
+		if (user.getEmail() != null && userSettingsService.isEmailNotificationEnabled(user.getId())) {
 			try {
 				emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName(), user.getLastName());
 			} catch (Exception e) {

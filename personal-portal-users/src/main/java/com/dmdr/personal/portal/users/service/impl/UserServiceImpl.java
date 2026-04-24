@@ -87,17 +87,19 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User createUserByAdmin(String email, String firstName, String lastName, String phoneNumber) {
+        String normalizedEmail = email == null || email.isBlank() ? null : email.trim();
+
         // Check if user with email already exists
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new IllegalArgumentException("User with email " + email + " already exists");
+        if (normalizedEmail != null && userRepository.findByEmail(normalizedEmail).isPresent()) {
+            throw new IllegalArgumentException("User with email " + normalizedEmail + " already exists");
         }
 
         User user = new User();
-        user.setEmail(email);
+        user.setEmail(normalizedEmail);
         user.setFirstName(firstName);
         user.setLastName(lastName);
         user.setPhoneNumber(phoneNumber);
-        user.setActive(true);
+        user.setActive(normalizedEmail != null);
 
         String randomPassword = passwordPolicyService.generateRandomPassword();
         user.setPassword(passwordEncoder.encode(randomPassword));

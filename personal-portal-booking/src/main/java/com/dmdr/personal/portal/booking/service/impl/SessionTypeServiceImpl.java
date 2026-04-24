@@ -51,6 +51,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		SessionType entity = new SessionType();
 		entity.setName(request.getName());
 		entity.setDescription(request.getDescription());
+		entity.setShortDescription(request.getShortDescription());
 		entity.setDurationMinutes(request.getDurationMinutes());
 		entity.setBufferMinutes(request.getBufferMinutes());
 		entity.setPrices(request.getPrices());
@@ -65,6 +66,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 			.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + id));
 		entity.setName(request.getName());
 		entity.setDescription(request.getDescription());
+		entity.setShortDescription(request.getShortDescription());
 		entity.setDurationMinutes(request.getDurationMinutes());
 		entity.setBufferMinutes(request.getBufferMinutes());
 		validatePrices(request.getPrices());
@@ -132,6 +134,7 @@ public class SessionTypeServiceImpl implements SessionTypeService {
 		resp.setId(entity.getId());
 		resp.setName(entity.getName());
 		resp.setDescription(entity.getDescription());
+		resp.setShortDescription(entity.getShortDescription());
 		resp.setDurationMinutes(entity.getDurationMinutes());
 		resp.setBufferMinutes(entity.getBufferMinutes());
 		resp.setPrices(entity.getPrices());

@@ -203,7 +203,7 @@ public class EmailServiceImpl implements EmailService {
                                             String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-confirmation", toEmail, () -> {
             String htmlContent = buildBookingConfirmationEmailHtml(firstName, lastName, sessionTypeName, startTime, recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование подтверждено — " + sessionTypeName, htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Запись подтверждена", htmlContent);
         });
     }
 
@@ -212,7 +212,7 @@ public class EmailServiceImpl implements EmailService {
                                          String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-rejection", toEmail, () -> {
             String htmlContent = buildBookingRejectionEmailHtml(firstName, lastName, sessionTypeName, startTime, recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отклонено — " + sessionTypeName, htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Запрос на запись отклонен", htmlContent);
         });
     }
 
@@ -255,7 +255,7 @@ public class EmailServiceImpl implements EmailService {
                                             String sessionTypeName, Instant startTime, String clientMessage, ZoneId recipientZoneId) {
         sendAsync("booking-request-admin", toEmail, () -> {
             String htmlContent = buildBookingRequestAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime, clientMessage, recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Новая заявка на бронирование — " + sessionTypeName, htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Новая запись", htmlContent);
         });
     }
 
@@ -270,7 +270,7 @@ public class EmailServiceImpl implements EmailService {
                     startTime,
                     clientMessage,
                     recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Заявка на бронирование получена — " + sessionTypeName, htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Запрос на запись получен", htmlContent);
         });
     }
 
@@ -287,7 +287,7 @@ public class EmailServiceImpl implements EmailService {
                     recipientZoneId);
             htmlEmailDispatcher.sendHtml(
                     toEmail,
-                    "Запрос на изменение бронирования получен — " + sessionTypeName,
+                    "Изменение времени сессии",
                     htmlContent);
         });
     }
@@ -305,7 +305,7 @@ public class EmailServiceImpl implements EmailService {
                     recipientZoneId);
             htmlEmailDispatcher.sendHtml(
                     toEmail,
-                    "Запрос на изменение бронирования от клиента — " + sessionTypeName,
+                    "Изменение времени сессии",
                     htmlContent);
         });
     }
@@ -323,7 +323,7 @@ public class EmailServiceImpl implements EmailService {
                     recipientZoneId);
             htmlEmailDispatcher.sendHtml(
                     toEmail,
-                    "Время бронирования обновлено администратором — " + sessionTypeName,
+                    "Время сессии изменено",
                     htmlContent);
         });
     }
@@ -333,7 +333,7 @@ public class EmailServiceImpl implements EmailService {
             String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-cancellation-user", toEmail, () -> {
             String htmlContent = buildBookingCancellationUserEmailHtml(firstName, lastName, sessionTypeName, startTime, recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отменено — " + sessionTypeName, htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Запись отменена", htmlContent);
         });
     }
 
@@ -342,7 +342,7 @@ public class EmailServiceImpl implements EmailService {
             String sessionTypeName, Instant startTime, ZoneId recipientZoneId) {
         sendAsync("booking-cancellation-admin", toEmail, () -> {
             String htmlContent = buildBookingCancellationAdminEmailHtml(clientName, clientEmail, sessionTypeName, startTime, recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Бронирование отменено — " + sessionTypeName, htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Клиент отменил запись", htmlContent);
         });
     }
 
@@ -543,7 +543,7 @@ public class EmailServiceImpl implements EmailService {
                     lastName,
                     verificationCode,
                     expiryMinutes);
-            htmlEmailDispatcher.sendHtml(toEmail, "Подтверждение аккаунта", htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Подтверждение регистрации", htmlContent);
         });
     }
 
@@ -567,7 +567,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendAdminServiceStartedEmail(String toEmail, Instant startedAt, ZoneId recipientZoneId) {
         sendAsync("service-started-admin", toEmail, () -> {
             String htmlContent = buildAdminServiceStartedEmailHtml(startedAt, recipientZoneId);
-            htmlEmailDispatcher.sendHtml(toEmail, "Cервис запущен", htmlContent);
+            htmlEmailDispatcher.sendHtml(toEmail, "Сайт запущен", htmlContent);
         });
     }
 

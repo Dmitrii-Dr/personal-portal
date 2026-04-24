@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DisplayName("Public Endpoints Security Tests")
@@ -12,29 +13,13 @@ class PublicEndpointsSecurityTest extends SecurityTestBase {
 
     @Test
     @DisplayName("Should allow access to /api/v1/auth/login without token")
-    void shouldAllowAccessToLoginWithoutToken() {
-        // We are checking that /login API is available (not blocked by security) even
-        // if login or password is incorrect
-        // The endpoint may return business logic errors (4xx/5xx), but should not
-        // return 401/403 security errors
-        try {
-            int statusCode = mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/login")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"email\":\"test@example.com\",\"password\":\"password\"}"))
-                    .andReturn()
-                    .getResponse()
-                    .getStatus();
-
-            // Should not be 401 (Unauthorized) or 403 (Forbidden) - security allows it
-            assert statusCode != 401 && statusCode != 403 : "Security blocked the request with status " + statusCode;
-        } catch (Exception e) {
-            // Exception is fine as long as it's not a security exception (401/403)
-            // The endpoint may throw business logic exceptions, but security should allow
-            // the request
-            String message = e.getMessage() != null ? e.getMessage() : "";
-            assert !message.contains("401") && !message.contains("403")
-                    : "Security blocked the request: " + message;
-        }
+    void shouldAllowAccessToLoginWithoutToken() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"test@example.com\",\"password\":\"password\"}"))
+                // Endpoint is public, but invalid credentials return domain-level 401.
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("PEC-410"));
     }
 
     @Test

@@ -13,7 +13,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class CreateUserAdminRequest {
 
-	@NotBlank(message = "Email is required")
 	@Email(message = "Email must be valid")
 	private String email;
 
@@ -23,6 +22,7 @@ public class CreateUserAdminRequest {
 	@Size(max = 100, message = "Last name must be at most 100 characters")
 	private String lastName;
 
+	@NotBlank(message = "Phone number is required")
 	@Size(max = 20, message = "Phone number must be at most 20 characters")
 	private String phoneNumber;
 

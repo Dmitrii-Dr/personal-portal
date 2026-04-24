@@ -20,6 +20,9 @@ public class CreateSessionTypeRequest {
 	@Size(max = 2000)
 	private String description;
 
+	@Size(max = 150)
+	private String shortDescription;
+
 	@NotNull
 	@Min(1)
 	private int durationMinutes;

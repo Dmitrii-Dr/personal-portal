@@ -12,6 +12,7 @@ public class SessionTypeResponse {
 	private Long id;
 	private String name;
 	private String description;
+	private String shortDescription;
 	private int durationMinutes;
 	private int bufferMinutes;
 	private Map<String, BigDecimal> prices;

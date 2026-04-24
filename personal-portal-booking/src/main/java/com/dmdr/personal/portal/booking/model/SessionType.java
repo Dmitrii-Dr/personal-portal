@@ -38,6 +38,9 @@ public class SessionType {
     @Column(length = 2000)
 	private String description;
 
+	@Column(name = "short_description", length = 500)
+	private String shortDescription;
+
 	@Column(name = "duration_minutes", nullable = false)
 	private int durationMinutes;
 
