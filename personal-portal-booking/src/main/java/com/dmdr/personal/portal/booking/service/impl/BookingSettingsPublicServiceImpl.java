@@ -23,6 +23,7 @@ public class BookingSettingsPublicServiceImpl implements BookingSettingsPublicSe
 		BookingSettingsResponse response = new BookingSettingsResponse();
 		response.setBookingCancelationInterval(settings.getBookingCancelationInterval());
 		response.setBookingUpdatingInterval(settings.getBookingUpdatingInterval());
+		response.setMaxPendingBookings(settings.getMaxPendingBookings());
 		return response;
 	}
 }

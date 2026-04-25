@@ -25,6 +25,10 @@ public class UpdateBookingSettingsRequest {
 	@NotNull
 	private int bookingUpdatingInterval;
 
+	@Min(1)
+	@NotNull
+	private int maxPendingBookings;
+
 	@NotNull
 	private boolean roundBookingSuggestions;
 

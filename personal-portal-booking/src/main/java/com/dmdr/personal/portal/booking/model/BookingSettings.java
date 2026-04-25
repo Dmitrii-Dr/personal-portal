@@ -40,6 +40,9 @@ public class BookingSettings {
 	@Column(name = "booking_updating_interval", nullable = false)
 	private int bookingUpdatingInterval;
 
+	@Column(name = "max_pending_bookings", nullable = false)
+	private int maxPendingBookings;
+
 	// Default timezone for availability rules (e.g., "13", "14")
 	@Column(name = "default_timezone_id", nullable = false)
 	private Integer defaultTimezoneId;

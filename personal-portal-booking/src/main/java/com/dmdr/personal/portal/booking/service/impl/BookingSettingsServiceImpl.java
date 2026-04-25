@@ -45,6 +45,7 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         settings.setBookingFirstSlotInterval(request.getBookingFirstSlotInterval());
         settings.setBookingCancelationInterval(request.getBookingCancelationInterval());
         settings.setBookingUpdatingInterval(request.getBookingUpdatingInterval());
+        settings.setMaxPendingBookings(request.getMaxPendingBookings());
         settings.setRoundBookingSuggestions(request.isRoundBookingSuggestions());
 
         if (!settings.getDefaultTimezoneId().equals(request.getDefaultTimezoneId())) {
@@ -68,6 +69,7 @@ public class BookingSettingsServiceImpl implements BookingSettingsService {
         resp.setBookingFirstSlotInterval(settings.getBookingFirstSlotInterval());
         resp.setBookingCancelationInterval(settings.getBookingCancelationInterval());
         resp.setBookingUpdatingInterval(settings.getBookingUpdatingInterval());
+        resp.setMaxPendingBookings(settings.getMaxPendingBookings());
         resp.setDefaultTimezone(TimezoneEntry.getById(settings.getDefaultTimezoneId()));
         resp.setDefaultUtcOffset(settings.getDefaultUtcOffset());
         resp.setRoundBookingSuggestions(settings.isRoundBookingSuggestions());

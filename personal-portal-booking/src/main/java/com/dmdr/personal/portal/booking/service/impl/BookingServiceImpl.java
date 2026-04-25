@@ -21,6 +21,8 @@ import com.dmdr.personal.portal.booking.repository.BookingSettingsRepository;
 import com.dmdr.personal.portal.booking.repository.SessionTypeRepository;
 import com.dmdr.personal.portal.booking.service.AvailabilityService;
 import com.dmdr.personal.portal.booking.service.BookingService;
+import com.dmdr.personal.portal.service.exception.PersonalPortalRuntimeException;
+import com.dmdr.personal.portal.service.exception.PortalErrorCode;
 import com.dmdr.personal.portal.users.model.User;
 import com.dmdr.personal.portal.users.repository.UserRepository;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
@@ -140,6 +142,11 @@ public class BookingServiceImpl implements BookingService {
             saved = transactionTemplate.execute(status -> {
                 User client = userRepository.findById(userId)
                         .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                BookingSettings settings = getBookingSettings();
+                long pendingBookingsCount = bookingRepository.countByClientIdAndStatus(userId, BookingStatus.PENDING_APPROVAL);
+                if (pendingBookingsCount >= settings.getMaxPendingBookings()) {
+                    throw new PersonalPortalRuntimeException(PortalErrorCode.BOOKING_PENDING_LIMIT_EXCEEDED);
+                }
                 SessionType sessionType = sessionTypeRepository.findById(request.getSessionTypeId())
                         .orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + request.getSessionTypeId()));
 

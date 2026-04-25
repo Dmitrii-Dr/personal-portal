@@ -26,6 +26,7 @@ public class BookingSettingsInitializer implements ApplicationRunner {
     private static final int DEFAULT_BOOKING_FIRST_SLOT_INTERVAL = 120; // 2 hours minimum notice
     private static final int DEFAULT_BOOKING_CANCELATION_INTERVAL = 60; // 1 hour before session
     private static final int DEFAULT_BOOKING_UPDATING_INTERVAL = 60; // 1 hour before session
+    private static final int DEFAULT_MAX_PENDING_BOOKINGS = 3;
     private static final Integer DEFAULT_TIMEZONE_ID = 13; // UTC
     private static final String DEFAULT_UTC_OFFSET = "+00:00";
     private static final boolean DEFAULT_ROUND_BOOKING_SUGGESTIONS = false;
@@ -41,6 +42,7 @@ public class BookingSettingsInitializer implements ApplicationRunner {
             defaultSettings.setBookingFirstSlotInterval(DEFAULT_BOOKING_FIRST_SLOT_INTERVAL);
             defaultSettings.setBookingCancelationInterval(DEFAULT_BOOKING_CANCELATION_INTERVAL);
             defaultSettings.setBookingUpdatingInterval(DEFAULT_BOOKING_UPDATING_INTERVAL);
+            defaultSettings.setMaxPendingBookings(DEFAULT_MAX_PENDING_BOOKINGS);
             defaultSettings.setDefaultTimezoneId(DEFAULT_TIMEZONE_ID);
             defaultSettings.setDefaultUtcOffset(DEFAULT_UTC_OFFSET);
             defaultSettings.setRoundBookingSuggestions(DEFAULT_ROUND_BOOKING_SUGGESTIONS);
@@ -49,11 +51,12 @@ public class BookingSettingsInitializer implements ApplicationRunner {
 
             log.info("Default BookingSettings created successfully with ID: {}", defaultSettings.getId());
             log.info(
-                    "BookingSettings: slots={}min, firstSlot={}min, cancelation={}min, updating={}min, timezone={}, offset={}",
+                    "BookingSettings: slots={}min, firstSlot={}min, cancelation={}min, updating={}min, maxPending={}, timezone={}, offset={}",
                     DEFAULT_BOOKING_SLOTS_INTERVAL,
                     DEFAULT_BOOKING_FIRST_SLOT_INTERVAL,
                     DEFAULT_BOOKING_CANCELATION_INTERVAL,
                     DEFAULT_BOOKING_UPDATING_INTERVAL,
+                    DEFAULT_MAX_PENDING_BOOKINGS,
                     DEFAULT_TIMEZONE_ID,
                     DEFAULT_UTC_OFFSET);
         } else {

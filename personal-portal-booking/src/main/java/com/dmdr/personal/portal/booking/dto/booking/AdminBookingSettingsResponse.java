@@ -12,6 +12,7 @@ public class AdminBookingSettingsResponse {
 	private int bookingFirstSlotInterval;
 	private int bookingCancelationInterval;
 	private int bookingUpdatingInterval;
+	private int maxPendingBookings;
 	private TimezoneEntry defaultTimezone;
 	private String defaultUtcOffset;
 	private boolean roundBookingSuggestions;

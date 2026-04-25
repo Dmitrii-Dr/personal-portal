@@ -12,6 +12,7 @@ public enum PortalErrorCode {
     PASSWORD_REQUIREMENTS_NOT_MET("PEC-418", 400, "Password does not meet security requirements."),
     EMAIL_SENDING_FAILED("PEC-419", 500, "Email sending failed."),
     INVALID_SLUG_FORMAT("PEC-420", 400, "Slug must contain only lowercase letters, numbers, and hyphens."),
+    BOOKING_PENDING_LIMIT_EXCEEDED("PEC-421", 409, "Maximum number of pending bookings reached."),
 
     UNEXPECTED_SERVER_ERROR("PEC-500", 500, "Unexpected server error.");
     private final String code;

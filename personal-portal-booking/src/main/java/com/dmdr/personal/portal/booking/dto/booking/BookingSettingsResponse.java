@@ -8,4 +8,5 @@ import lombok.Setter;
 public class BookingSettingsResponse {
 	private int bookingCancelationInterval;
 	private int bookingUpdatingInterval;
+	private int maxPendingBookings;
 }
