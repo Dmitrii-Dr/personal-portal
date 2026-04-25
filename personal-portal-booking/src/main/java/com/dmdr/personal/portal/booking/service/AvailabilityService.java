@@ -23,4 +23,8 @@ public interface AvailabilityService {
             Booking bookingToUpdate,
             LocalDate suggestedDate,
             Integer timezoneId);
+
+    List<LocalDate> calculateAvailableDays(SessionType sessionType, Integer timezoneId);
+
+    List<LocalDate> calculateAvailableDaysForUpdate(Booking booking, Integer timezoneId);
 }

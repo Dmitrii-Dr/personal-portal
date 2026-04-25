@@ -24,6 +24,8 @@ import java.time.ZoneId;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AvailabilityServiceImpl implements AvailabilityService {
+
+    private static final int MAX_LOOKAHEAD_DAYS = 365;
 
     private final AvailabilityRuleRepository repository;
     private final BookingSettingsRepository bookingSettingsRepository;
@@ -233,6 +237,214 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         }
 
         return suggestions;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LocalDate> calculateAvailableDays(SessionType sessionType, Integer timezoneId) {
+        return calculateAvailableDaysInternal(
+                sessionType.getDurationMinutes(),
+                sessionType.getBufferMinutes(),
+                timezoneId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LocalDate> calculateAvailableDaysForUpdate(Booking booking, Integer timezoneId) {
+        return calculateAvailableDaysInternal(
+                booking.getSessionDurationMinutes(),
+                booking.getSessionBufferMinutes(),
+                timezoneId);
+    }
+
+    private List<LocalDate> calculateAvailableDaysInternal(
+            int sessionDurationMinutes,
+            int sessionBufferMinutes,
+            Integer timezoneId) {
+        ZoneId userZone = ZoneId.of(TimezoneEntry.getById(timezoneId).getGmtOffset());
+        LocalDate today = LocalDate.now(userZone);
+        LocalDate capDate = today.plusDays(MAX_LOOKAHEAD_DAYS);
+
+        BookingSettings settings = bookingSettingsRepository.mustFindTopByOrderByIdAsc();
+        Instant minimumStart = Instant.now().plusSeconds(settings.getBookingFirstSlotInterval() * 60L);
+
+        Instant todayStart = today.atStartOfDay(userZone).toInstant();
+        Instant capInstant = capDate.atTime(23, 59, 59, 999_999_999).atZone(userZone).toInstant();
+
+        List<AvailabilityRule> allActiveRules = repository.findByRuleStatus(AvailabilityRule.RuleStatus.ACTIVE);
+        List<AvailabilityOverride> activeAvailableOverrides =
+                overrideRepository.findOverlappingAvailableOverrides(todayStart, capInstant, OverrideStatus.ACTIVE);
+
+        if (allActiveRules.isEmpty() && activeAvailableOverrides.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LocalDate maxDateFromRules = allActiveRules.stream()
+                .map(r -> r.getRuleEndInstant().atZone(userZone).toLocalDate())
+                .max(Comparator.naturalOrder())
+                .orElse(today);
+
+        LocalDate maxDateFromOverrides = activeAvailableOverrides.stream()
+                .map(o -> o.getOverrideEndInstant().atZone(userZone).toLocalDate())
+                .max(Comparator.naturalOrder())
+                .orElse(today);
+
+        LocalDate maxDate = maxDateFromRules.isAfter(maxDateFromOverrides) ? maxDateFromRules : maxDateFromOverrides;
+        if (maxDate.isAfter(capDate)) {
+            maxDate = capDate;
+        }
+
+        List<LocalDate> result = new ArrayList<>();
+        for (LocalDate date = today; !date.isAfter(maxDate); date = date.plusDays(1)) {
+            Instant dayStart = date.atStartOfDay(userZone).toInstant();
+            Instant dayEnd = date.atTime(23, 59, 59, 999_999_999).atZone(userZone).toInstant();
+
+            List<TimeRange> ranges = calculateAvailableTimeRangesWithPreloadedRules(
+                    allActiveRules, dayStart, dayEnd, date, userZone, minimumStart);
+
+            SuggestionContext ctx = new SuggestionContext(userZone, dayStart, dayEnd, settings, minimumStart);
+            boolean hasSlot = ranges.stream()
+                    .anyMatch(range -> !generateSlots(
+                            range, sessionDurationMinutes, sessionBufferMinutes, ctx).isEmpty());
+
+            if (hasSlot) {
+                result.add(date);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Like calculateAvailableTimeRanges but accepts pre-loaded active rules to avoid
+     * a repeated DB query per day when checking availability across many dates.
+     */
+    private List<TimeRange> calculateAvailableTimeRangesWithPreloadedRules(
+            List<AvailabilityRule> allActiveRules,
+            Instant dayStartInstant,
+            Instant dayEndInstant,
+            LocalDate date,
+            ZoneId zoneId,
+            Instant minimumStartTime) {
+
+        List<TimeRange> allAvailableRanges = calculateAvailableTimeRangesByRulesAndOverridesWithPreloadedRules(
+                allActiveRules, dayStartInstant, dayEndInstant, date, zoneId, minimumStartTime);
+
+        List<Booking> existingBookings = bookingRepository.findBookingsByStatusAndTimeRange(
+                List.of(BookingStatus.PENDING_APPROVAL, BookingStatus.CONFIRMED),
+                dayStartInstant,
+                dayEndInstant);
+
+        return subtractBookedRangesFromAll(allAvailableRanges, existingBookings);
+    }
+
+    /**
+     * Like calculateAvailableTimeRangesByRulesAndOverrides but filters rules from the
+     * supplied pre-loaded list instead of issuing a per-day DB query.
+     */
+    private List<TimeRange> calculateAvailableTimeRangesByRulesAndOverridesWithPreloadedRules(
+            List<AvailabilityRule> allActiveRules,
+            Instant dayStartInstant,
+            Instant dayEndInstant,
+            LocalDate suggestedDate,
+            ZoneId zoneId,
+            Instant minimumStartTime) {
+
+        List<AvailabilityRule> matchingRules = findMatchingRulesForDayFromList(
+                allActiveRules, dayStartInstant, dayEndInstant, zoneId);
+
+        List<AvailabilityOverride> unavailableOverrides = overrideRepository.findOverlappingUnavailableOverrides(
+                dayStartInstant, dayEndInstant, OverrideStatus.ACTIVE);
+
+        List<TimeRange> ruleRanges = new ArrayList<>();
+        for (AvailabilityRule rule : matchingRules) {
+            ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
+            LocalTime availableStart = rule.getAvailableStartTime();
+            LocalTime availableEnd = rule.getAvailableEndTime();
+
+            LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
+            LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
+
+            LocalDate candidateDate = startDateInRuleTimezone;
+            while (!candidateDate.isAfter(endDateInRuleTimezone)) {
+                DayOfWeek dayOfWeek = candidateDate.getDayOfWeek();
+                if (containsDay(rule.getDaysOfWeekAsInt(), dayOfWeek.getValue())) {
+                    LocalDateTime candidateStartDateTime = candidateDate.atTime(availableStart);
+                    LocalDateTime candidateEndDateTime = candidateDate.atTime(availableEnd);
+                    Instant candidateStartInstant = candidateStartDateTime.atZone(ruleZoneId).toInstant();
+                    Instant candidateEndInstant = candidateEndDateTime.atZone(ruleZoneId).toInstant();
+
+                    if (candidateStartInstant.isAfter(rule.getRuleEndInstant())) {
+                        break;
+                    }
+
+                    TimeRange ruleOverlap = findFutureOverlap(
+                            new TimeRange(dayStartInstant, dayEndInstant),
+                            new TimeRange(candidateStartInstant, candidateEndInstant),
+                            minimumStartTime);
+
+                    if (ruleOverlap != null) {
+                        ruleRanges.add(ruleOverlap);
+                    }
+                }
+                candidateDate = candidateDate.plusDays(1);
+            }
+        }
+
+        List<TimeRange> allAvailableRanges = subtractUnavailableRangesFromAll(ruleRanges, unavailableOverrides);
+
+        List<AvailabilityOverride> availableOverrides = overrideRepository.findOverlappingAvailableOverrides(
+                dayStartInstant, dayEndInstant, OverrideStatus.ACTIVE);
+
+        for (AvailabilityOverride override : availableOverrides) {
+            TimeRange overrideOverlap = findFutureOverlap(
+                    new TimeRange(dayStartInstant, dayEndInstant),
+                    new TimeRange(override.getOverideStartInstant(), override.getOverrideEndInstant()),
+                    minimumStartTime);
+
+            if (overrideOverlap != null) {
+                allAvailableRanges.add(overrideOverlap);
+            }
+        }
+
+        return allAvailableRanges;
+    }
+
+    /**
+     * Like findMatchingRulesForDay but filters from a pre-loaded list instead of
+     * querying the DB, so rules only need to be fetched once per multi-day iteration.
+     */
+    private List<AvailabilityRule> findMatchingRulesForDayFromList(
+            List<AvailabilityRule> allActiveRules,
+            Instant dayStartInstant,
+            Instant dayEndInstant,
+            ZoneId zoneId) {
+
+        return allActiveRules.stream()
+                .filter(rule -> {
+                    Instant ruleStart = rule.getRuleStartInstant();
+                    Instant ruleEnd = rule.getRuleEndInstant();
+
+                    boolean ruleOverlapsDay = (ruleStart.isBefore(dayEndInstant) || ruleStart.equals(dayEndInstant))
+                            && (ruleEnd.isAfter(dayStartInstant) || ruleEnd.equals(dayStartInstant));
+
+                    if (!ruleOverlapsDay) {
+                        return false;
+                    }
+
+                    ZoneId ruleZoneId = ZoneId.of(TimezoneEntry.getById(rule.getTimezoneId()).getGmtOffset());
+                    LocalDate startDateInRuleTimezone = dayStartInstant.atZone(ruleZoneId).toLocalDate();
+                    LocalDate endDateInRuleTimezone = dayEndInstant.atZone(ruleZoneId).toLocalDate();
+
+                    DayOfWeek startDayOfWeek = startDateInRuleTimezone.getDayOfWeek();
+                    DayOfWeek endDayOfWeek = endDateInRuleTimezone.getDayOfWeek();
+
+                    boolean startDayMatches = containsDay(rule.getDaysOfWeekAsInt(), startDayOfWeek.getValue());
+                    boolean endDayMatches = containsDay(rule.getDaysOfWeekAsInt(), endDayOfWeek.getValue());
+
+                    return startDayMatches || endDayMatches;
+                })
+                .collect(Collectors.toList());
     }
 
     private SuggestionContext buildSuggestionContext(LocalDate suggestedDate, Integer timezoneId) {

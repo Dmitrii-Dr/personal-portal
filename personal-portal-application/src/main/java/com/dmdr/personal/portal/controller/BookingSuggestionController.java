@@ -3,6 +3,7 @@ package com.dmdr.personal.portal.controller;
 import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.repository.BookingRepository;
 import com.dmdr.personal.portal.core.model.TimezoneEntry;
+import com.dmdr.personal.portal.booking.dto.booking.AvailableDaysResponse;
 import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestion;
 import com.dmdr.personal.portal.booking.dto.booking.BookingSuggestionsResponse;
 import com.dmdr.personal.portal.booking.model.SessionType;
@@ -34,6 +35,23 @@ public class BookingSuggestionController {
 		this.availabilityService = availabilityService;
 		this.sessionTypeRepository = sessionTypeRepository;
 		this.bookingRepository = bookingRepository;
+	}
+
+	@GetMapping("/public/booking/available/days")
+	public ResponseEntity<AvailableDaysResponse> getAvailableDays(
+			@RequestParam Long sessionTypeId,
+			@RequestParam Integer timezoneId) {
+		SessionType sessionType = sessionTypeRepository.findById(sessionTypeId)
+				.orElseThrow(() -> new IllegalArgumentException("SessionType not found: " + sessionTypeId));
+
+		List<LocalDate> days = availabilityService.calculateAvailableDays(sessionType, timezoneId);
+
+		AvailableDaysResponse response = new AvailableDaysResponse();
+		response.setDays(days);
+		response.setTimezone(TimezoneEntry.getById(timezoneId));
+		response.setSessionTypeId(sessionTypeId);
+
+		return ResponseEntity.ok(response);
 	}
 
 	@GetMapping("/public/booking/available/slot")
@@ -86,6 +104,21 @@ public class BookingSuggestionController {
 
 		return ResponseEntity.ok(dto);
 
+	}
+
+	@GetMapping("/booking/{bookingId}/available/days")
+	public ResponseEntity<AvailableDaysResponse> getAvailableDaysForUpdate(
+			@PathVariable Long bookingId,
+			@RequestParam Integer timezoneId) {
+		Booking bookingToUpdate = bookingRepository.findById(bookingId)
+				.orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+
+		List<LocalDate> days = availabilityService.calculateAvailableDaysForUpdate(bookingToUpdate, timezoneId);
+
+		AvailableDaysResponse response = new AvailableDaysResponse();
+		response.setDays(days);
+		response.setTimezone(TimezoneEntry.getById(timezoneId));
+		return ResponseEntity.ok(response);
 	}
 
 	private BookingSuggestionsResponse transformToDto(
