@@ -1,6 +1,5 @@
 package com.dmdr.personal.portal.content.service.impl;
 
-import com.dmdr.personal.portal.content.dto.ContactDto;
 import com.dmdr.personal.portal.content.dto.UpdateHomePageRequest;
 import com.dmdr.personal.portal.content.model.Contact;
 import com.dmdr.personal.portal.content.model.HomePage;
@@ -58,8 +57,8 @@ public class HomePageServiceImpl implements HomePageService {
         if (request.getEducationMessage() != null) {
             homePage.setEducationMessage(request.getEducationMessage());
         }
-        if (request.getEducationMediaId() != null) {
-            homePage.setEducationMediaId(request.getEducationMediaId());
+        if (request.getEducationMediaIds() != null) {
+            homePage.setEducationMediaIds(request.getEducationMediaIds());
         }
         if (request.getReviewMessage() != null) {
             homePage.setReviewMessage(request.getReviewMessage());

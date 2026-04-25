@@ -66,8 +66,9 @@ public class HomePage {
     @Column(name = "education_message", columnDefinition = "TEXT")
     private String educationMessage;
 
-    @Column(name = "education_media_id")
-    private UUID educationMediaId;
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "education_media_ids", columnDefinition = "UUID[]")
+    private List<UUID> educationMediaIds = new ArrayList<>();
 
     @Column(name = "review_message", columnDefinition = "TEXT")
     private String reviewMessage;

@@ -4,9 +4,7 @@ import com.dmdr.personal.portal.content.dto.ContactDto;
 import com.dmdr.personal.portal.content.dto.HomePageResponse;
 import com.dmdr.personal.portal.content.model.HomePage;
 import com.dmdr.personal.portal.content.service.HomePageService;
-import com.dmdr.personal.portal.core.security.SystemRole;
 import com.dmdr.personal.portal.service.CurrentUserService;
-import com.dmdr.personal.portal.users.model.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,7 +49,7 @@ public class InfoController {
         response.setAboutMessage(homePage.getAboutMessage());
         response.setAboutMediaId(homePage.getAboutMediaId());
         response.setEducationMessage(homePage.getEducationMessage());
-        response.setEducationMediaId(homePage.getEducationMediaId());
+        response.setEducationMediaIds(homePage.getEducationMediaIds());
         response.setReviewMessage(homePage.getReviewMessage());
         response.setReviewMediaIds(homePage.getReviewMediaIds());
         response.setExtendedParameters(homePage.getExtendedParameters());

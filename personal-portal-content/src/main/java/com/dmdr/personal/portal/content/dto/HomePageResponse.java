@@ -21,7 +21,7 @@ public class HomePageResponse {
     private String aboutMessage;
     private UUID aboutMediaId;
     private String educationMessage;
-    private UUID educationMediaId;
+    private List<UUID> educationMediaIds;
     private String reviewMessage;
     private List<UUID> reviewMediaIds;
     private Map<String, Object> extendedParameters;
