@@ -76,6 +76,9 @@ public class AuthController {
         if (!userService.validatePassword(request.getPassword(), user.getPassword())) {
             throw new PersonalPortalRuntimeException(PortalErrorCode.INVALID_EMAIL_PASSWORD);
         }
+        if (user.isLocked()) {
+            throw new PersonalPortalRuntimeException(PortalErrorCode.ACCOUNT_LOCKED);
+        }
 
         Set<String> roles = user.getRoles().stream()
                 .map(Role::getName)
@@ -122,6 +125,9 @@ public class AuthController {
             UUID userId = rotation.userId();
             User user = userService.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            if (user.isLocked()) {
+                throw new PersonalPortalRuntimeException(PortalErrorCode.ACCOUNT_LOCKED);
+            }
 
             Set<String> roles = user.getRoles().stream()
                     .map(Role::getName)

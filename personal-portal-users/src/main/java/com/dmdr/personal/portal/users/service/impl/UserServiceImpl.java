@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.users.service.impl;
 
 import com.dmdr.personal.portal.core.security.SystemRole;
+import com.dmdr.personal.portal.users.dto.UpdateUserAdminRequest;
 import com.dmdr.personal.portal.users.dto.UpdateUserProfileRequest;
 import com.dmdr.personal.portal.users.model.Role;
 import com.dmdr.personal.portal.users.model.User;
@@ -13,6 +14,7 @@ import com.dmdr.personal.portal.users.service.UserService;
 import com.dmdr.personal.portal.users.model.SignedAgreement;
 import com.dmdr.personal.portal.users.service.UserSettingsService;
 import com.dmdr.personal.portal.users.service.PasswordPolicyService;
+import com.dmdr.personal.portal.users.service.RefreshTokenService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,18 +42,21 @@ public class UserServiceImpl implements UserService {
     private final UserSettingsService userSettingsService;
     private final AgreementVerifier agreementVerifier;
     private final PasswordPolicyService passwordPolicyService;
+    private final RefreshTokenService refreshTokenService;
 
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
             RoleService roleService,
             UserSettingsService userSettingsService,
             AgreementVerifier agreementVerifier,
-            PasswordPolicyService passwordPolicyService) {
+            PasswordPolicyService passwordPolicyService,
+            RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
         this.userSettingsService = userSettingsService;
         this.agreementVerifier = agreementVerifier;
         this.passwordPolicyService = passwordPolicyService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Override
@@ -152,6 +157,60 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public User updateUserByAdmin(UUID userId, UpdateUserAdminRequest request) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User id cannot be null");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+
+        User user = userRepository.findUserById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User with id " + userId + " not found"));
+        validateClientUser(user);
+
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        if (request.getEmail() != null && !emailsEqual(user.getEmail(), normalizedEmail)) {
+            if (normalizedEmail != null && userRepository.findByEmail(normalizedEmail).isPresent()) {
+                throw new IllegalArgumentException("User with email " + normalizedEmail + " already exists");
+            }
+            user.setEmail(normalizedEmail);
+            user.setActive(normalizedEmail != null);
+        }
+
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+        if (request.getPhoneNumber() != null) {
+            user.setPhoneNumber(request.getPhoneNumber());
+        }
+        if (request.getIsLocked() != null && user.isLocked() != request.getIsLocked()) {
+            user.setLocked(request.getIsLocked());
+            if (request.getIsLocked()) {
+                refreshTokenService.revokeAllSessions(user.getId());
+            }
+        }
+
+        return userRepository.save(user);
+    }
+
+    @Override
+    public void deleteUserByAdmin(UUID userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User id cannot be null");
+        }
+
+        User user = userRepository.findUserById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User with id " + userId + " not found"));
+        validateClientUser(user);
+        refreshTokenService.revokeAllSessions(user.getId());
+        userRepository.delete(user);
+    }
+
+    @Override
     public User updateProfile(UUID userId, UpdateUserProfileRequest request) {
         if (userId == null) {
             throw new IllegalArgumentException("User id cannot be null");
@@ -191,5 +250,32 @@ public class UserServiceImpl implements UserService {
         user.setLastPasswordResetDate(OffsetDateTime.now());
 
         userRepository.save(user);
+    }
+
+    private void validateClientUser(User user) {
+        Set<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+        if (roleNames.contains(SystemRole.ADMIN.getAuthority())) {
+            throw new IllegalArgumentException("Admin users cannot be managed as clients");
+        }
+        if (!roleNames.contains(DEFAULT_ROLE)) {
+            throw new IllegalArgumentException("User is not a client");
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        String trimmed = email.trim();
+        return trimmed.isBlank() ? null : trimmed;
+    }
+
+    private boolean emailsEqual(String first, String second) {
+        if (first == null || second == null) {
+            return first == null && second == null;
+        }
+        return first.equalsIgnoreCase(second);
     }
 }

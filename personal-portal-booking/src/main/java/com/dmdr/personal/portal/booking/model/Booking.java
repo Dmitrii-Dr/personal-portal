@@ -37,9 +37,21 @@ public class Booking {
 	@EqualsAndHashCode.Include
 	private Long id;
 
-	@ManyToOne(optional = false)
-	@JoinColumn(name = "client_id", nullable = false)
+	@ManyToOne
+	@JoinColumn(name = "client_id")
 	private User client;
+
+	@Column(name = "client_email", length = 255)
+	private String clientEmail;
+
+	@Column(name = "client_first_name", length = 100)
+	private String clientFirstName;
+
+	@Column(name = "client_last_name", length = 100)
+	private String clientLastName;
+
+	@Column(name = "client_phone_number", length = 20)
+	private String clientPhoneNumber;
 
 	@Column(name = "session_name", nullable = false, length = 200)
 	private String sessionName;

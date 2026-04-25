@@ -20,6 +20,8 @@ public class UserResponse {
     private Short avatarId;
     @JsonProperty("isVerified")
     private boolean isVerified;
+    @JsonProperty("isLocked")
+    private boolean isLocked;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

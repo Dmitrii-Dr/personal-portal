@@ -162,6 +162,7 @@ public class BookingServiceImpl implements BookingService {
 
                 Booking entity = new Booking();
                 entity.setClient(client);
+                applyClientSnapshot(entity, client);
                 entity.setSessionName(sessionType.getName());
                 entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
                 entity.setSessionBufferMinutes(sessionType.getBufferMinutes());
@@ -264,6 +265,7 @@ public class BookingServiceImpl implements BookingService {
             // Create booking entity
             Booking entity = new Booking();
             entity.setClient(client);
+            applyClientSnapshot(entity, client);
             // Copy session type data into booking (denormalization)
             entity.setSessionName(sessionType.getName());
             entity.setSessionDurationMinutes(sessionType.getDurationMinutes());
@@ -416,6 +418,7 @@ public class BookingServiceImpl implements BookingService {
 
             // Update booking entity
             bookingToUpdate.setClient(client);
+            applyClientSnapshot(bookingToUpdate, client);
             bookingToUpdate.setStartTime(request.getStartTime());
             // Set endTime (includes duration only, buffer is for validation purposes)
             Instant endTimeForEntity = request.getStartTime().plusSeconds(bookingToUpdate.getSessionDurationMinutes() * 60L);
@@ -564,10 +567,7 @@ public class BookingServiceImpl implements BookingService {
         for (BookingStatus status : statuses) {
             List<Booking> statusBookings = bookingsByStatus.getOrDefault(status, List.of());
             List<AdminBookingResponse> adminBookings = statusBookings.stream()
-                    .map(booking -> {
-                        BookingResponse bookingResponse = toResponse(booking);
-                        return new AdminBookingResponse(bookingResponse, booking.getClient());
-                    })
+                    .map(BookingServiceImpl::toAdminResponse)
                     .sorted(Comparator.comparing(AdminBookingResponse::getStartTimeInstant))
                     .collect(Collectors.toList());
             response.addBookingsForStatus(status, adminBookings);
@@ -594,6 +594,9 @@ public class BookingServiceImpl implements BookingService {
 
         // Send email notifications for CONFIRMED or DECLINED only if email notifications are enabled
         User client = booking.getClient();
+        if (client == null) {
+            return toResponse(saved);
+        }
         boolean emailEnabled = userSettingsService.isEmailNotificationEnabled(client.getId());
 
         if (newStatus == BookingStatus.CONFIRMED && emailEnabled) {
@@ -684,6 +687,24 @@ public class BookingServiceImpl implements BookingService {
 
     private static AdminBookingResponse toAdminResponse(Booking entity) {
         BookingResponse bookingResponse = toResponse(entity);
-        return new AdminBookingResponse(bookingResponse, entity.getClient());
+        User client = entity.getClient();
+        return new AdminBookingResponse(
+                bookingResponse,
+                client != null ? client.getId() : null,
+                firstNonBlank(entity.getClientEmail(), client != null ? client.getEmail() : null),
+                firstNonBlank(entity.getClientFirstName(), client != null ? client.getFirstName() : null),
+                firstNonBlank(entity.getClientLastName(), client != null ? client.getLastName() : null),
+                firstNonBlank(entity.getClientPhoneNumber(), client != null ? client.getPhoneNumber() : null));
+    }
+
+    private static void applyClientSnapshot(Booking booking, User client) {
+        booking.setClientEmail(client.getEmail());
+        booking.setClientFirstName(client.getFirstName());
+        booking.setClientLastName(client.getLastName());
+        booking.setClientPhoneNumber(client.getPhoneNumber());
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? second : first;
     }
 }

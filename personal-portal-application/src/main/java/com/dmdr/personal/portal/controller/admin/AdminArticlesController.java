@@ -65,6 +65,7 @@ public class AdminArticlesController {
                                 dto.setFirstName(u.getFirstName());
                                 dto.setLastName(u.getLastName());
                                 dto.setVerified(u.isActive());
+                                dto.setLocked(u.isLocked());
                                 dto.setCreatedAt(u.getCreatedAt());
                                 dto.setUpdatedAt(u.getUpdatedAt());
                                 return dto;

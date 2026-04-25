@@ -64,6 +64,9 @@ public class User {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = false;
 
+    @Column(name = "is_locked", nullable = false)
+    private boolean isLocked = false;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

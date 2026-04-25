@@ -10,6 +10,7 @@ import com.dmdr.personal.portal.booking.model.Booking;
 import com.dmdr.personal.portal.booking.model.BookingStatus;
 import com.dmdr.personal.portal.booking.service.BookingService;
 import com.dmdr.personal.portal.controller.util.BookingStatusParser;
+import com.dmdr.personal.portal.users.model.User;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -83,7 +84,14 @@ public class AdminBookingController {
             Page<Booking> bookingsPage = bookingService.getAllBookingsByStatus(status, pageable);
             Page<AdminBookingResponse> adminBookingsPage = bookingsPage.map(booking -> {
                 BookingResponse bookingResponse = toBookingResponse(booking);
-                return new AdminBookingResponse(bookingResponse, booking.getClient());
+                User client = booking.getClient();
+                return new AdminBookingResponse(
+                        bookingResponse,
+                        client != null ? client.getId() : null,
+                        firstNonBlank(booking.getClientEmail(), client != null ? client.getEmail() : null),
+                        firstNonBlank(booking.getClientFirstName(), client != null ? client.getFirstName() : null),
+                        firstNonBlank(booking.getClientLastName(), client != null ? client.getLastName() : null),
+                        firstNonBlank(booking.getClientPhoneNumber(), client != null ? client.getPhoneNumber() : null));
             });
             return ResponseEntity.ok(adminBookingsPage);
         } finally {
@@ -105,6 +113,10 @@ public class AdminBookingController {
         response.setClientMessage(booking.getClientMessage());
         response.setCreatedAt(booking.getCreatedAt());
         return response;
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? second : first;
     }
 
     @GetMapping("/group")

@@ -1,6 +1,7 @@
 package com.dmdr.personal.portal.users.service;
 
 import com.dmdr.personal.portal.users.dto.CreateUserRequest;
+import com.dmdr.personal.portal.users.dto.UpdateUserAdminRequest;
 import com.dmdr.personal.portal.users.dto.UpdateUserProfileRequest;
 import com.dmdr.personal.portal.users.model.User;
 
@@ -35,6 +36,10 @@ public interface UserService {
     List<User> findByRoleName(String roleName, Comparator<User> comparator);
 
     boolean validatePassword(String rawPassword, String encodedPassword);
+
+    User updateUserByAdmin(UUID userId, UpdateUserAdminRequest request);
+
+    void deleteUserByAdmin(UUID userId);
 
     User updateProfile(UUID userId, UpdateUserProfileRequest request);
 

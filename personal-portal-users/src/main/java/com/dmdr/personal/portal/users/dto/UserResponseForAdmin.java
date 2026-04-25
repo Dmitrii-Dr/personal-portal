@@ -13,6 +13,7 @@ public record UserResponseForAdmin(
         String lastName,
         String phoneNumber,
         boolean isVerified,
+        boolean isLocked,
         Set<String> roles,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt) {
@@ -31,6 +32,7 @@ public record UserResponseForAdmin(
                 user.getLastName(),
                 user.getPhoneNumber(),
                 user.isActive(),
+                user.isLocked(),
                 roleNames,
                 user.getCreatedAt(),
                 user.getUpdatedAt());

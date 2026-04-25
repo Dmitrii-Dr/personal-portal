@@ -13,6 +13,7 @@ public enum PortalErrorCode {
     EMAIL_SENDING_FAILED("PEC-419", 500, "Email sending failed."),
     INVALID_SLUG_FORMAT("PEC-420", 400, "Slug must contain only lowercase letters, numbers, and hyphens."),
     BOOKING_PENDING_LIMIT_EXCEEDED("PEC-421", 409, "Maximum number of pending bookings reached."),
+    ACCOUNT_LOCKED("PEC-422", 403, "Account is locked."),
 
     UNEXPECTED_SERVER_ERROR("PEC-500", 500, "Unexpected server error.");
     private final String code;

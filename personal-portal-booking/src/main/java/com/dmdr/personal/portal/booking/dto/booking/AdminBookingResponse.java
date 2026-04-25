@@ -16,6 +16,17 @@ public class AdminBookingResponse extends BookingResponse {
 	private String clientPhoneNumber;
 
 	public AdminBookingResponse(BookingResponse bookingResponse, User client) {
+		this(
+				bookingResponse,
+				client != null ? client.getId() : null,
+				client != null ? client.getEmail() : null,
+				client != null ? client.getFirstName() : null,
+				client != null ? client.getLastName() : null,
+				client != null ? client.getPhoneNumber() : null);
+	}
+
+	public AdminBookingResponse(BookingResponse bookingResponse, UUID clientId, String clientEmail,
+			String clientFirstName, String clientLastName, String clientPhoneNumber) {
 		// Copy all fields from BookingResponse
 		this.setId(bookingResponse.getId());
 		this.setSessionName(bookingResponse.getSessionName());
@@ -30,11 +41,11 @@ public class AdminBookingResponse extends BookingResponse {
 		this.setCreatedAt(bookingResponse.getCreatedAt());
 		
 		// Add client information
-		this.clientId = client.getId();
-		this.clientEmail = client.getEmail();
-		this.clientFirstName = client.getFirstName();
-		this.clientLastName = client.getLastName();
-		this.clientPhoneNumber = client.getPhoneNumber();
+		this.clientId = clientId;
+		this.clientEmail = clientEmail;
+		this.clientFirstName = clientFirstName;
+		this.clientLastName = clientLastName;
+		this.clientPhoneNumber = clientPhoneNumber;
 	}
 }
 

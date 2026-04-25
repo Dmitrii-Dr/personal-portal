@@ -25,6 +25,7 @@ public class WebSecurityConfig {
 
     private final CorsConfigurationSource corsConfigurationSource;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AccountLockedFilter accountLockedFilter;
     private final AccountActivationFilter accountActivationFilter;
     private final HomePageActiveFilter homePageActiveFilter;
     private final AlreadyAuthenticatedFilter alreadyAuthenticatedFilter;
@@ -34,6 +35,7 @@ public class WebSecurityConfig {
 
     public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            AccountLockedFilter accountLockedFilter,
             AccountActivationFilter accountActivationFilter,
             HomePageActiveFilter homePageActiveFilter,
             AlreadyAuthenticatedFilter alreadyAuthenticatedFilter,
@@ -42,6 +44,7 @@ public class WebSecurityConfig {
             RequestMatcher csrfRequestMatcher) {
         this.corsConfigurationSource = corsConfigurationSource;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.accountLockedFilter = accountLockedFilter;
         this.accountActivationFilter = accountActivationFilter;
         this.homePageActiveFilter = homePageActiveFilter;
         this.alreadyAuthenticatedFilter = alreadyAuthenticatedFilter;
@@ -101,7 +104,8 @@ public class WebSecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(homePageActiveFilter, JwtAuthenticationFilter.class)
-                .addFilterAfter(accountActivationFilter, HomePageActiveFilter.class)
+                .addFilterAfter(accountLockedFilter, HomePageActiveFilter.class)
+                .addFilterAfter(accountActivationFilter, AccountLockedFilter.class)
                 .addFilterAfter(alreadyAuthenticatedFilter, JwtAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints - health check and authentication endpoints
